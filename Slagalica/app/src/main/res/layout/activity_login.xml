@@ -9,105 +9,84 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp"
-        android:gravity="center_horizontal">
+        android:gravity="center_horizontal"
+        android:padding="24dp">
 
         <TextView
-            android:id="@+id/tvRegisterTitle"
+            android:id="@+id/tvLoginTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Registracija"
+            android:text="Prijava"
             android:textSize="30sp"
             android:textStyle="bold"
             android:textColor="#1E1E1E"
-            android:layout_marginTop="32dp"
+            android:layout_marginTop="80dp"
             android:layout_marginBottom="8dp" />
 
         <TextView
-            android:id="@+id/tvRegisterSubtitle"
+            android:id="@+id/tvLoginSubtitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Kreirajte nalog za igranje Slagalice"
+            android:text="Prijavite se za igranje Slagalice"
             android:textSize="16sp"
             android:textColor="#666666"
             android:gravity="center"
             android:layout_marginBottom="32dp" />
 
         <EditText
-            android:id="@+id/etEmail"
+            android:id="@+id/etLoginIdentifier"
             android:layout_width="match_parent"
             android:layout_height="55dp"
-            android:hint="Email"
-            android:inputType="textEmailAddress"
+            android:hint="Email ili korisničko ime"
+            android:inputType="text"
             android:padding="12dp"
             android:background="@android:drawable/edit_text"
             android:layout_marginBottom="16dp" />
 
         <EditText
-            android:id="@+id/etUsername"
-            android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:hint="Korisničko ime"
-            android:inputType="textPersonName"
-            android:padding="12dp"
-            android:background="@android:drawable/edit_text"
-            android:layout_marginBottom="16dp" />
-
-        <Spinner
-            android:id="@+id/spinnerRegion"
-            android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:entries="@array/regions_array"
-            android:padding="12dp"
-            android:background="@android:drawable/edit_text"
-            android:layout_marginBottom="16dp" />
-
-        <EditText
-            android:id="@+id/etPassword"
+            android:id="@+id/etLoginPassword"
             android:layout_width="match_parent"
             android:layout_height="55dp"
             android:hint="Lozinka"
             android:inputType="textPassword"
             android:padding="12dp"
             android:background="@android:drawable/edit_text"
-            android:layout_marginBottom="16dp" />
-
-        <EditText
-            android:id="@+id/etRepeatedPassword"
-            android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:hint="Ponovite lozinku"
-            android:inputType="textPassword"
-            android:padding="12dp"
-            android:background="@android:drawable/edit_text"
-            android:layout_marginBottom="20dp" />
-
-        <TextView
-            android:id="@+id/tvEmailInfo"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Nakon registracije dobićete link za potvrdu na email."
-            android:textSize="14sp"
-            android:textColor="#777777"
-            android:gravity="center"
             android:layout_marginBottom="20dp" />
 
         <Button
-            android:id="@+id/btnRegister"
+            android:id="@+id/btnLogin"
             android:layout_width="match_parent"
             android:layout_height="55dp"
-            android:text="Registruj se"
+            android:text="Prijavi se"
             android:textAllCaps="false"
             android:textSize="16sp"
             android:layout_marginBottom="16dp" />
 
         <Button
-            android:id="@+id/btnBack"
+            android:id="@+id/btnGoToRegister"
             android:layout_width="match_parent"
             android:layout_height="55dp"
-            android:text="Već imate nalog? Nazad na prijavu"
+            android:text="Nemate nalog? Registrujte se"
             android:textAllCaps="false"
-            android:textSize="13sp" />
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/btnForgotPassword"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:text="Reset lozinke"
+            android:textAllCaps="false"
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/btnLoginBack"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:text="Nazad"
+            android:textAllCaps="false"
+            android:textSize="16sp" />
 
     </LinearLayout>
 

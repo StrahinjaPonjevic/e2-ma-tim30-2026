@@ -14,7 +14,25 @@
         android:textSize="36sp"
         android:textStyle="bold"
         android:textColor="#1E1E1E"
+        android:layout_marginBottom="12dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Mobilna kviz aplikacija"
+        android:textSize="16sp"
+        android:textColor="#666666"
+        android:gravity="center"
         android:layout_marginBottom="40dp" />
+
+    <Button
+        android:id="@+id/btnOpenLogin"
+        android:layout_width="match_parent"
+        android:layout_height="55dp"
+        android:text="Prijava"
+        android:textAllCaps="false"
+        android:textSize="16sp"
+        android:layout_marginBottom="16dp" />
 
     <Button
         android:id="@+id/btnOpenRegister"
