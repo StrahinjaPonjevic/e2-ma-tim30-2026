@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="regions_array">
+        <item>Izaberi region</item>
+        <item>Bačka</item>
+        <item>Banat</item>
+        <item>Srem</item>
+        <item>Beograd</item>
+        <item>Šumadija</item>
+        <item>Zapadna Srbija</item>
+        <item>Istočna Srbija</item>
+        <item>Južna Srbija</item>
+        <item>Kosovo i Metohija</item>
+    </string-array>
+</resources>
