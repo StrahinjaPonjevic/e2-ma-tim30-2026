@@ -40,6 +40,15 @@
         android:layout_height="55dp"
         android:text="Registracija"
         android:textAllCaps="false"
+        android:textSize="16sp"
+        android:layout_marginBottom="50dp" />
+
+    <Button
+        android:id="@+id/btnOpenProfile"
+        android:layout_width="match_parent"
+        android:layout_height="55dp"
+        android:text="Otvori profil"
+        android:textAllCaps="false"
         android:textSize="16sp" />
 
 </LinearLayout>

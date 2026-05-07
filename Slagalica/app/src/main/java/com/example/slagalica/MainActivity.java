@@ -15,6 +15,8 @@ public class MainActivity extends AppCompatActivity {
 
     private Button btnOpenLogin;
     private Button btnOpenRegister;
+    private Button btnOpenProfile;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -23,6 +25,8 @@ public class MainActivity extends AppCompatActivity {
 
         btnOpenLogin = findViewById(R.id.btnOpenLogin);
         btnOpenRegister = findViewById(R.id.btnOpenRegister);
+        btnOpenProfile = findViewById(R.id.btnOpenProfile);
+
 
         btnOpenLogin.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -36,6 +40,14 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 Intent intent = new Intent(MainActivity.this, RegisterActivity.class);
+                startActivity(intent);
+            }
+        });
+
+        btnOpenProfile.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(MainActivity.this, ProfileActivity.class);
                 startActivity(intent);
             }
         });
