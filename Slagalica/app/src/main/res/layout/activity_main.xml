@@ -1,54 +1,90 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:padding="24dp"
+    android:fillViewport="true"
     android:background="#F5F5F5">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Slagalica"
-        android:textSize="36sp"
-        android:textStyle="bold"
-        android:textColor="#1E1E1E"
-        android:layout_marginBottom="12dp" />
-
-    <TextView
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Mobilna kviz aplikacija"
-        android:textSize="16sp"
-        android:textColor="#666666"
+        android:orientation="vertical"
         android:gravity="center"
-        android:layout_marginBottom="40dp" />
+        android:padding="24dp">
 
-    <Button
-        android:id="@+id/btnOpenLogin"
-        android:layout_width="match_parent"
-        android:layout_height="55dp"
-        android:text="Prijava"
-        android:textAllCaps="false"
-        android:textSize="16sp"
-        android:layout_marginBottom="16dp" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Slagalica"
+            android:textSize="36sp"
+            android:textStyle="bold"
+            android:textColor="#1E1E1E"
+            android:layout_marginTop="40dp"
+            android:layout_marginBottom="12dp" />
 
-    <Button
-        android:id="@+id/btnOpenRegister"
-        android:layout_width="match_parent"
-        android:layout_height="55dp"
-        android:text="Registracija"
-        android:textAllCaps="false"
-        android:textSize="16sp"
-        android:layout_marginBottom="50dp" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Mobilna kviz aplikacija"
+            android:textSize="16sp"
+            android:textColor="#666666"
+            android:gravity="center"
+            android:layout_marginBottom="40dp" />
 
-    <Button
-        android:id="@+id/btnOpenProfile"
-        android:layout_width="match_parent"
-        android:layout_height="55dp"
-        android:text="Otvori profil"
-        android:textAllCaps="false"
-        android:textSize="16sp" />
+        <Button
+            android:id="@+id/btnOpenLogin"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:text="Prijava"
+            android:textAllCaps="false"
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp" />
 
-</LinearLayout>
+        <Button
+            android:id="@+id/btnOpenRegister"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:text="Registracija"
+            android:textAllCaps="false"
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/btnOpenProfile"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:text="Otvori profil"
+            android:textAllCaps="false"
+            android:textSize="16sp"
+            android:layout_marginBottom="32dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Student 1 - igre"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="#1E1E1E"
+            android:gravity="center"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/btnOpenKorakPoKorak"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:text="Korak po korak"
+            android:textAllCaps="false"
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/btnOpenMojBroj"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:text="Moj broj"
+            android:textAllCaps="false"
+            android:textSize="16sp" />
+
+    </LinearLayout>
+
+</ScrollView>

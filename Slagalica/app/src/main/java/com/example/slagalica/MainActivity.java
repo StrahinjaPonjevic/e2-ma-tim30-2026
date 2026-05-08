@@ -5,18 +5,15 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 
-import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 
 public class MainActivity extends AppCompatActivity {
 
     private Button btnOpenLogin;
     private Button btnOpenRegister;
     private Button btnOpenProfile;
-
+    private Button btnOpenKorakPoKorak;
+    private Button btnOpenMojBroj;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,7 +23,8 @@ public class MainActivity extends AppCompatActivity {
         btnOpenLogin = findViewById(R.id.btnOpenLogin);
         btnOpenRegister = findViewById(R.id.btnOpenRegister);
         btnOpenProfile = findViewById(R.id.btnOpenProfile);
-
+        btnOpenKorakPoKorak = findViewById(R.id.btnOpenKorakPoKorak);
+        btnOpenMojBroj = findViewById(R.id.btnOpenMojBroj);
 
         btnOpenLogin.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -48,6 +46,22 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 Intent intent = new Intent(MainActivity.this, ProfileActivity.class);
+                startActivity(intent);
+            }
+        });
+
+        btnOpenKorakPoKorak.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(MainActivity.this, KorakPoKorakActivity.class);
+                startActivity(intent);
+            }
+        });
+
+        btnOpenMojBroj.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(MainActivity.this, MojBrojActivity.class);
                 startActivity(intent);
             }
         });
