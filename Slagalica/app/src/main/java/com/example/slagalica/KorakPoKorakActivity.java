@@ -11,8 +11,6 @@ import androidx.appcompat.app.AppCompatActivity;
 public class KorakPoKorakActivity extends AppCompatActivity {
     private EditText etAnswer;
     private Button btnConfirmAnswer;
-    private Button btnNextStep;
-    private Button btnGiveUp;
 
     @Override
     protected void onCreate(Bundle savedInstanceState){
@@ -21,8 +19,6 @@ public class KorakPoKorakActivity extends AppCompatActivity {
 
         etAnswer = findViewById(R.id.etAnswer);
         btnConfirmAnswer = findViewById(R.id.btnConfirmAnswer);
-        btnNextStep = findViewById(R.id.btnNextStep);
-        btnGiveUp = findViewById(R.id.btnGiveUp);
 
         btnConfirmAnswer.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -39,24 +35,6 @@ public class KorakPoKorakActivity extends AppCompatActivity {
                         "Odgovor je poslat: " + answer,
                         Toast.LENGTH_SHORT
                         ).show();
-            }
-        });
-
-        btnNextStep.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Toast.makeText(
-                        KorakPoKorakActivity.this,
-                        "Otvara se sledeci korak",
-                        Toast.LENGTH_SHORT
-                ).show();
-            }
-        });
-
-        btnGiveUp.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                finish();
             }
         });
     }

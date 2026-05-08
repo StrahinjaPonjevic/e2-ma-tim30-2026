@@ -1,193 +1,235 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true"
-    android:background="#F5F5F5">
+    android:background="#F5F5F5"
+    android:fitsSystemWindows="true"
+    android:paddingStart="18dp"
+    android:paddingTop="14dp"
+    android:paddingEnd="18dp"
+    android:paddingBottom="14dp">
+
+    <TextView
+        android:id="@+id/tvGameTitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:text="Korak po korak"
+        android:textColor="#1E1E1E"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toStartOf="@id/headerInfo"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <LinearLayout
-        android:layout_width="match_parent"
+        android:id="@+id/headerInfo"
+        android:layout_width="116dp"
         android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:gravity="end"
         android:orientation="vertical"
-        android:padding="24dp">
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/tvGameTitle">
 
         <TextView
-            android:layout_width="match_parent"
+            android:id="@+id/tvRound"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Korak po korak"
-            android:textSize="30sp"
-            android:textStyle="bold"
+            android:text="Runda: 1/2"
             android:textColor="#1E1E1E"
-            android:gravity="center"
-            android:layout_marginBottom="8dp" />
+            android:textSize="13sp"
+            android:textStyle="bold" />
 
         <TextView
-            android:layout_width="match_parent"
+            android:id="@+id/tvTimer"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Pogodite traženi pojam kroz najviše 7 koraka"
-            android:textSize="15sp"
-            android:textColor="#666666"
-            android:gravity="center"
-            android:layout_marginBottom="24dp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="16dp">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Runda: 1/2"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="#1E1E1E" />
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Vreme: 70s"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="#1E1E1E"
-                android:gravity="end" />
-
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="24dp">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Igrač 1: 0"
-                android:textSize="16sp"
-                android:textColor="#333333" />
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Igrač 2: 0"
-                android:textSize="16sp"
-                android:textColor="#333333"
-                android:gravity="end" />
-
-        </LinearLayout>
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="Korak 1: __________"
-            android:textSize="16sp"
-            android:gravity="center_vertical"
-            android:padding="12dp"
-            android:background="@android:drawable/edit_text"
-            android:layout_marginBottom="10dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="Korak 2: __________"
-            android:textSize="16sp"
-            android:gravity="center_vertical"
-            android:padding="12dp"
-            android:background="@android:drawable/edit_text"
-            android:layout_marginBottom="10dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="Korak 3: __________"
-            android:textSize="16sp"
-            android:gravity="center_vertical"
-            android:padding="12dp"
-            android:background="@android:drawable/edit_text"
-            android:layout_marginBottom="10dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="Korak 4: __________"
-            android:textSize="16sp"
-            android:gravity="center_vertical"
-            android:padding="12dp"
-            android:background="@android:drawable/edit_text"
-            android:layout_marginBottom="10dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="Korak 5: __________"
-            android:textSize="16sp"
-            android:gravity="center_vertical"
-            android:padding="12dp"
-            android:background="@android:drawable/edit_text"
-            android:layout_marginBottom="10dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="Korak 6: __________"
-            android:textSize="16sp"
-            android:gravity="center_vertical"
-            android:padding="12dp"
-            android:background="@android:drawable/edit_text"
-            android:layout_marginBottom="10dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="Korak 7: __________"
-            android:textSize="16sp"
-            android:gravity="center_vertical"
-            android:padding="12dp"
-            android:background="@android:drawable/edit_text"
-            android:layout_marginBottom="20dp" />
-
-        <EditText
-            android:id="@+id/etAnswer"
-            android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:hint="Unesite konačan pojam"
-            android:inputType="text"
-            android:padding="12dp"
-            android:background="@android:drawable/edit_text"
-            android:layout_marginBottom="16dp" />
-
-        <Button
-            android:id="@+id/btnConfirmAnswer"
-            android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:text="Potvrdi odgovor"
-            android:textAllCaps="false"
-            android:textSize="16sp"
-            android:layout_marginBottom="12dp" />
-
-        <Button
-            android:id="@+id/btnNextStep"
-            android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:text="Otvori sledeći korak"
-            android:textAllCaps="false"
-            android:textSize="16sp"
-            android:layout_marginBottom="12dp" />
-
-        <Button
-            android:id="@+id/btnGiveUp"
-            android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:text="Odustani"
-            android:textAllCaps="false"
-            android:textSize="16sp" />
-
+            android:text="Vreme: 70s"
+            android:textColor="#1E1E1E"
+            android:textSize="13sp"
+            android:textStyle="bold" />
     </LinearLayout>
 
-</ScrollView>
+    <LinearLayout
+        android:id="@+id/statusRow"
+        android:layout_width="0dp"
+        android:layout_height="44dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="8dp"
+        android:orientation="horizontal"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tvGameTitle">
+
+        <TextView
+            android:id="@+id/tvCurrentPoints"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:background="@android:drawable/edit_text"
+            android:gravity="center"
+            android:text="20"
+            android:textColor="#1E1E1E"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvStepSeconds"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:background="@android:drawable/edit_text"
+            android:gravity="center"
+            android:text="10s"
+            android:textColor="#1E1E1E"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/stepsContainer"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="12dp"
+        android:layout_marginLeft="8dp"
+        android:layout_marginRight="8dp"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toTopOf="@id/etAnswer"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/statusRow">
+
+        <TextView
+            android:id="@+id/tvStep1"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginBottom="6dp"
+            android:layout_weight="1"
+            android:background="@android:drawable/edit_text"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:text="Ima veze sa Savom i Dunavom"
+            android:textColor="#1E1E1E"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/tvStep2"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginBottom="6dp"
+            android:layout_weight="1"
+            android:background="@android:drawable/edit_text"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:text="Ima veze sa zdravljem"
+            android:textColor="#1E1E1E"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/tvStep3"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginBottom="6dp"
+            android:layout_weight="1"
+            android:background="@android:drawable/edit_text"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:text="Za vozilo je obavezno"
+            android:textColor="#1E1E1E"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/tvStep4"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginBottom="6dp"
+            android:layout_weight="1"
+            android:background="@android:drawable/edit_text"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:text=""
+            android:textColor="#1E1E1E"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/tvStep5"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginBottom="6dp"
+            android:layout_weight="1"
+            android:background="@android:drawable/edit_text"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:text=""
+            android:textColor="#1E1E1E"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/tvStep6"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginBottom="6dp"
+            android:layout_weight="1"
+            android:background="@android:drawable/edit_text"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:text=""
+            android:textColor="#1E1E1E"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/tvStep7"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="@android:drawable/edit_text"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:text=""
+            android:textColor="#1E1E1E"
+            android:textSize="14sp" />
+    </LinearLayout>
+
+    <EditText
+        android:id="@+id/etAnswer"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:layout_marginLeft="8dp"
+        android:layout_marginRight="8dp"
+        android:background="@android:drawable/edit_text"
+        android:hint="Unesite konacan pojam"
+        android:inputType="text"
+        android:padding="10dp"
+        android:textSize="15sp"
+        app:layout_constraintBottom_toTopOf="@id/btnConfirmAnswer"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <Button
+        android:id="@+id/btnConfirmAnswer"
+        android:layout_width="0dp"
+        android:layout_height="50dp"
+        android:layout_marginTop="10dp"
+        android:layout_marginLeft="8dp"
+        android:layout_marginRight="8dp"
+        android:text="Potvrdi odgovor"
+        android:textAllCaps="false"
+        android:textSize="16sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
