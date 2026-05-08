@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F5F5F5">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Ko zna zna"
+            android:textSize="30sp"
+            android:textStyle="bold"
+            android:textColor="#1E1E1E"
+            android:gravity="center"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:id="@+id/tvRoundInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Pitanje 1/5"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="#333333"
+            android:gravity="center"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/tvTimer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Vreme: 5s"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#6B4EB2"
+            android:gravity="center"
+            android:layout_marginBottom="20dp" />
+
+        <TextView
+            android:id="@+id/tvQuestion"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Koji je glavni grad Srbije?"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="#1E1E1E"
+            android:gravity="center"
+            android:background="#FFFFFF"
+            android:padding="18dp"
+            android:layout_marginBottom="20dp" />
+
+        <Button
+            android:id="@+id/btnAnswerA"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:text="A) Novi Sad"
+            android:textAllCaps="false"
+            android:textSize="16sp"
+            android:layout_marginBottom="10dp" />
+
+        <Button
+            android:id="@+id/btnAnswerB"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:text="B) Beograd"
+            android:textAllCaps="false"
+            android:textSize="16sp"
+            android:layout_marginBottom="10dp" />
+
+        <Button
+            android:id="@+id/btnAnswerC"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:text="C) Niš"
+            android:textAllCaps="false"
+            android:textSize="16sp"
+            android:layout_marginBottom="10dp" />
+
+        <Button
+            android:id="@+id/btnAnswerD"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:text="D) Kragujevac"
+            android:textAllCaps="false"
+            android:textSize="16sp"
+            android:layout_marginBottom="20dp" />
+
+        <TextView
+            android:id="@+id/tvPlayerScore"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Ti: 0 bodova"
+            android:textSize="18sp"
+            android:textColor="#222222"
+            android:layout_marginBottom="6dp" />
+
+        <TextView
+            android:id="@+id/tvOpponentScore"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Protivnik: 0 bodova"
+            android:textSize="18sp"
+            android:textColor="#222222"
+            android:layout_marginBottom="20dp" />
+
+        <Button
+            android:id="@+id/btnNextQuestion"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:text="Sledeće pitanje"
+            android:textAllCaps="false"
+            android:textSize="16sp"
+            android:layout_marginBottom="12dp" />
+
+        <Button
+            android:id="@+id/btnBack"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:text="Nazad"
+            android:textAllCaps="false"
+            android:textSize="16sp" />
+
+    </LinearLayout>
+</ScrollView>

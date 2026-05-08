@@ -14,6 +14,8 @@ public class MainActivity extends AppCompatActivity {
     private Button btnOpenProfile;
     private Button btnOpenKorakPoKorak;
     private Button btnOpenMojBroj;
+    private Button btnOpenKoZnaZna;
+    private Button btnOpenSpojnice;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -25,6 +27,8 @@ public class MainActivity extends AppCompatActivity {
         btnOpenProfile = findViewById(R.id.btnOpenProfile);
         btnOpenKorakPoKorak = findViewById(R.id.btnOpenKorakPoKorak);
         btnOpenMojBroj = findViewById(R.id.btnOpenMojBroj);
+        btnOpenKoZnaZna = findViewById(R.id.btnOpenKoZnaZna);
+        btnOpenSpojnice = findViewById(R.id.btnOpenSpojnice);
 
         btnOpenLogin.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -62,6 +66,22 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 Intent intent = new Intent(MainActivity.this, MojBrojActivity.class);
+                startActivity(intent);
+            }
+        });
+
+        btnOpenKoZnaZna.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(MainActivity.this, KoZnaZnaActivity.class);
+                startActivity(intent);
+            }
+        });
+
+        btnOpenSpojnice.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(MainActivity.this, SpojniceActivity.class);
                 startActivity(intent);
             }
         });

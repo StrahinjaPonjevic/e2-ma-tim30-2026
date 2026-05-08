@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F5F5F5">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Spojnice"
+            android:textSize="30sp"
+            android:textStyle="bold"
+            android:textColor="#1E1E1E"
+            android:gravity="center"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:id="@+id/tvRound"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Runda 1/2"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="#333333"
+            android:gravity="center"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/tvTimer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Vreme: 30s"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#6B4EB2"
+            android:gravity="center"
+            android:layout_marginBottom="12dp" />
+
+        <TextView
+            android:id="@+id/tvScore"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Bodovi: 0"
+            android:textSize="18sp"
+            android:textColor="#222222"
+            android:gravity="center"
+            android:layout_marginBottom="20dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Izaberi pojam iz leve kolone, pa odgovarajući pojam iz desne kolone."
+            android:textSize="16sp"
+            android:textColor="#555555"
+            android:gravity="center"
+            android:layout_marginBottom="20dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="20dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:layout_marginEnd="8dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Leva kolona"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:gravity="center"
+                    android:layout_marginBottom="8dp" />
+
+                <Button
+                    android:id="@+id/btnLeft1"
+                    android:layout_width="match_parent"
+                    android:layout_height="55dp"
+                    android:text="Nikola Tesla"
+                    android:textAllCaps="false"
+                    android:textSize="14sp"
+                    android:layout_marginBottom="8dp" />
+
+                <Button
+                    android:id="@+id/btnLeft2"
+                    android:layout_width="match_parent"
+                    android:layout_height="55dp"
+                    android:text="Novak Đoković"
+                    android:textAllCaps="false"
+                    android:textSize="14sp"
+                    android:layout_marginBottom="8dp" />
+
+                <Button
+                    android:id="@+id/btnLeft3"
+                    android:layout_width="match_parent"
+                    android:layout_height="55dp"
+                    android:text="Ivo Andrić"
+                    android:textAllCaps="false"
+                    android:textSize="14sp"
+                    android:layout_marginBottom="8dp" />
+
+                <Button
+                    android:id="@+id/btnLeft4"
+                    android:layout_width="match_parent"
+                    android:layout_height="55dp"
+                    android:text="Mocart"
+                    android:textAllCaps="false"
+                    android:textSize="14sp"
+                    android:layout_marginBottom="8dp" />
+
+                <Button
+                    android:id="@+id/btnLeft5"
+                    android:layout_width="match_parent"
+                    android:layout_height="55dp"
+                    android:text="Albert Einstein"
+                    android:textAllCaps="false"
+                    android:textSize="14sp" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:layout_marginStart="8dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Desna kolona"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:gravity="center"
+                    android:layout_marginBottom="8dp" />
+
+                <Button
+                    android:id="@+id/btnRight1"
+                    android:layout_width="match_parent"
+                    android:layout_height="55dp"
+                    android:text="Tenis"
+                    android:textAllCaps="false"
+                    android:textSize="14sp"
+                    android:layout_marginBottom="8dp" />
+
+                <Button
+                    android:id="@+id/btnRight2"
+                    android:layout_width="match_parent"
+                    android:layout_height="55dp"
+                    android:text="Relativnost"
+                    android:textAllCaps="false"
+                    android:textSize="14sp"
+                    android:layout_marginBottom="8dp" />
+
+                <Button
+                    android:id="@+id/btnRight3"
+                    android:layout_width="match_parent"
+                    android:layout_height="55dp"
+                    android:text="Naizmenična struja"
+                    android:textAllCaps="false"
+                    android:textSize="14sp"
+                    android:layout_marginBottom="8dp" />
+
+                <Button
+                    android:id="@+id/btnRight4"
+                    android:layout_width="match_parent"
+                    android:layout_height="55dp"
+                    android:text="Muzika"
+                    android:textAllCaps="false"
+                    android:textSize="14sp"
+                    android:layout_marginBottom="8dp" />
+
+                <Button
+                    android:id="@+id/btnRight5"
+                    android:layout_width="match_parent"
+                    android:layout_height="55dp"
+                    android:text="Na Drini ćuprija"
+                    android:textAllCaps="false"
+                    android:textSize="14sp" />
+
+            </LinearLayout>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvSelected"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Izabrano: ništa"
+            android:textSize="16sp"
+            android:textColor="#333333"
+            android:gravity="center"
+            android:layout_marginBottom="20dp" />
+
+        <Button
+            android:id="@+id/btnNextRound"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:text="Sledeća runda"
+            android:textAllCaps="false"
+            android:textSize="16sp"
+            android:layout_marginBottom="12dp" />
+
+        <Button
+            android:id="@+id/btnBack"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:text="Nazad"
+            android:textAllCaps="false"
+            android:textSize="16sp" />
+
+    </LinearLayout>
+</ScrollView>

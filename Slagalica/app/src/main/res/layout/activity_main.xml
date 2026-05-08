@@ -83,6 +83,34 @@
             android:layout_height="55dp"
             android:text="Moj broj"
             android:textAllCaps="false"
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Student 2 - igre"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="#1E1E1E"
+            android:gravity="center"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/btnOpenKoZnaZna"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:text="Ko zna zna"
+            android:textAllCaps="false"
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/btnOpenSpojnice"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:text="Spojnice"
+            android:textAllCaps="false"
             android:textSize="16sp" />
 
     </LinearLayout>

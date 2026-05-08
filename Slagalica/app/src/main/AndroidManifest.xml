@@ -31,6 +31,12 @@
             android:exported="false"
             android:screenOrientation="landscape" />
         <activity
+            android:name=".KoZnaZnaActivity"
+            android:exported="false" />
+        <activity
+            android:name=".SpojniceActivity"
+            android:exported="false" />
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
