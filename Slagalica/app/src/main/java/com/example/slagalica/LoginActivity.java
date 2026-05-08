@@ -7,11 +7,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
-import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -52,11 +48,8 @@ public class LoginActivity extends AppCompatActivity {
         btnForgotPassword.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Toast.makeText(
-                        LoginActivity.this,
-                        "Reset lozinke ćemo implementirati na posebnom ekranu.",
-                        Toast.LENGTH_SHORT
-                ).show();
+                Intent intent = new Intent(LoginActivity.this, ResetPasswordActivity.class);
+                startActivity(intent);
             }
         });
 
@@ -73,7 +66,7 @@ public class LoginActivity extends AppCompatActivity {
         String password = etLoginPassword.getText().toString().trim();
 
         if (identifier.isEmpty()) {
-            etLoginIdentifier.setError("Unesite email ili korisničko ime");
+            etLoginIdentifier.setError("Unesite email ili korisnicko ime");
             return;
         }
 
@@ -82,11 +75,7 @@ public class LoginActivity extends AppCompatActivity {
             return;
         }
 
-        Toast.makeText(
-                this,
-                "Uspešna prijava.",
-                Toast.LENGTH_SHORT
-        ).show();
+        Toast.makeText(this, "Uspesna prijava.", Toast.LENGTH_SHORT).show();
         finish();
     }
 }
