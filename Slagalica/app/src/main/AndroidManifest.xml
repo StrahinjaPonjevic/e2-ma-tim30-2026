@@ -28,7 +28,8 @@
             android:exported="false" />
         <activity
             android:name=".MojBrojActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:screenOrientation="landscape" />
         <activity
             android:name=".MainActivity"
             android:exported="true">
