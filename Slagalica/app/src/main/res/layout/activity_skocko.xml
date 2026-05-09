@@ -1,0 +1,438 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F5F5F5">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:gravity="center_vertical">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <TextView
+                android:id="@+id/tvPlayer1Name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Igrač 1"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#1E1E1E"/>
+
+            <TextView
+                android:id="@+id/tvPlayer1Score"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0 bodova"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="#6200EE"/>
+        </LinearLayout>
+
+
+        <FrameLayout
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:gravity="center">
+
+            <com.google.android.material.progressindicator.CircularProgressIndicator
+                android:id="@+id/progressTimer"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:layout_gravity="center"
+                app:indicatorColor="#6200EE"
+                app:trackColor="#E0E0E0"
+                app:trackThickness="6dp"
+                app:indicatorSize="72dp"/>
+
+            <TextView
+                android:id="@+id/tvTimer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="30"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="#1E1E1E"/>
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <TextView
+                android:id="@+id/tvPlayer2Name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Igrač 2"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#1E1E1E"/>
+
+            <TextView
+                android:id="@+id/tvPlayer2Score"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0 bodova"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="#6200EE"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvRoundLabel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="RUNDA 1 — PRONAĐI TAČNU KOMBINACIJU"
+        android:textSize="12sp"
+        android:textColor="#666666"
+        android:gravity="center"
+        android:paddingBottom="8dp"/>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#E0E0E0"
+        android:layout_marginHorizontal="16dp"/>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:overScrollMode="never"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:id="@+id/llGuessGrid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="24dp"
+            android:paddingVertical="8dp">
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:gravity="center" android:layout_marginVertical="4dp">
+                <TextView android:id="@+id/r1s1" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <TextView android:id="@+id/r1s2" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <TextView android:id="@+id/r1s3" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <TextView android:id="@+id/r1s4" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <View android:layout_width="12dp" android:layout_height="1dp"/>
+                <GridLayout android:layout_width="36dp" android:layout_height="36dp"
+                    android:columnCount="2" android:rowCount="2">
+                    <View android:id="@+id/r1fb1" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                    <View android:id="@+id/r1fb2" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                    <View android:id="@+id/r1fb3" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                    <View android:id="@+id/r1fb4" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                </GridLayout>
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:gravity="center" android:layout_marginVertical="4dp">
+                <TextView android:id="@+id/r2s1" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <TextView android:id="@+id/r2s2" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <TextView android:id="@+id/r2s3" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <TextView android:id="@+id/r2s4" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <View android:layout_width="12dp" android:layout_height="1dp"/>
+                <GridLayout android:layout_width="36dp" android:layout_height="36dp"
+                    android:columnCount="2" android:rowCount="2">
+                    <View android:id="@+id/r2fb1" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                    <View android:id="@+id/r2fb2" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                    <View android:id="@+id/r2fb3" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                    <View android:id="@+id/r2fb4" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                </GridLayout>
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:gravity="center" android:layout_marginVertical="4dp">
+                <TextView android:id="@+id/r3s1" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <TextView android:id="@+id/r3s2" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <TextView android:id="@+id/r3s3" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <TextView android:id="@+id/r3s4" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <View android:layout_width="12dp" android:layout_height="1dp"/>
+                <GridLayout android:layout_width="36dp" android:layout_height="36dp"
+                    android:columnCount="2" android:rowCount="2">
+                    <View android:id="@+id/r3fb1" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                    <View android:id="@+id/r3fb2" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                    <View android:id="@+id/r3fb3" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                    <View android:id="@+id/r3fb4" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                </GridLayout>
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:gravity="center" android:layout_marginVertical="4dp">
+                <TextView android:id="@+id/r4s1" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <TextView android:id="@+id/r4s2" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <TextView android:id="@+id/r4s3" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <TextView android:id="@+id/r4s4" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <View android:layout_width="12dp" android:layout_height="1dp"/>
+                <GridLayout android:layout_width="36dp" android:layout_height="36dp"
+                    android:columnCount="2" android:rowCount="2">
+                    <View android:id="@+id/r4fb1" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                    <View android:id="@+id/r4fb2" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                    <View android:id="@+id/r4fb3" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                    <View android:id="@+id/r4fb4" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                </GridLayout>
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:gravity="center" android:layout_marginVertical="4dp">
+                <TextView android:id="@+id/r5s1" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <TextView android:id="@+id/r5s2" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <TextView android:id="@+id/r5s3" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <TextView android:id="@+id/r5s4" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <View android:layout_width="12dp" android:layout_height="1dp"/>
+                <GridLayout android:layout_width="36dp" android:layout_height="36dp"
+                    android:columnCount="2" android:rowCount="2">
+                    <View android:id="@+id/r5fb1" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                    <View android:id="@+id/r5fb2" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                    <View android:id="@+id/r5fb3" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                    <View android:id="@+id/r5fb4" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                </GridLayout>
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:gravity="center" android:layout_marginVertical="4dp">
+                <TextView android:id="@+id/r6s1" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <TextView android:id="@+id/r6s2" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <TextView android:id="@+id/r6s3" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <TextView android:id="@+id/r6s4" android:layout_width="52dp" android:layout_height="52dp"
+                    android:gravity="center" android:textSize="28sp" android:text=""
+                    android:background="@drawable/bg_slot_empty" android:layout_marginHorizontal="4dp"/>
+                <View android:layout_width="12dp" android:layout_height="1dp"/>
+                <GridLayout android:layout_width="36dp" android:layout_height="36dp"
+                    android:columnCount="2" android:rowCount="2">
+                    <View android:id="@+id/r6fb1" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                    <View android:id="@+id/r6fb2" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                    <View android:id="@+id/r6fb3" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                    <View android:id="@+id/r6fb4" android:layout_width="14dp" android:layout_height="14dp" android:background="@drawable/bg_dot_empty" android:layout_margin="2dp"/>
+                </GridLayout>
+            </LinearLayout>
+
+        </LinearLayout>
+    </ScrollView>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#E0E0E0"
+        android:layout_marginHorizontal="16dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F5F5F5"
+        android:paddingHorizontal="24dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="16dp">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="12dp">
+
+            <TextView android:id="@+id/tvSlot1"
+                android:layout_width="52dp" android:layout_height="52dp"
+                android:gravity="center" android:textSize="28sp" android:text="·"
+                android:textColor="#BDBDBD"
+                android:background="@drawable/bg_slot_active"
+                android:layout_marginHorizontal="4dp"/>
+            <TextView android:id="@+id/tvSlot2"
+                android:layout_width="52dp" android:layout_height="52dp"
+                android:gravity="center" android:textSize="28sp" android:text="·"
+                android:textColor="#BDBDBD"
+                android:background="@drawable/bg_slot_active"
+                android:layout_marginHorizontal="4dp"/>
+            <TextView android:id="@+id/tvSlot3"
+                android:layout_width="52dp" android:layout_height="52dp"
+                android:gravity="center" android:textSize="28sp" android:text="·"
+                android:textColor="#BDBDBD"
+                android:background="@drawable/bg_slot_active"
+                android:layout_marginHorizontal="4dp"/>
+            <TextView android:id="@+id/tvSlot4"
+                android:layout_width="52dp" android:layout_height="52dp"
+                android:gravity="center" android:textSize="28sp" android:text="·"
+                android:textColor="#BDBDBD"
+                android:background="@drawable/bg_slot_active"
+                android:layout_marginHorizontal="4dp"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="12dp">
+
+            <Button
+                android:id="@+id/btnSkocko"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:text="👾"
+                android:textSize="22sp"
+                android:textAllCaps="false"
+                android:padding="0dp"
+                android:layout_marginHorizontal="2dp"/>
+
+            <Button
+                android:id="@+id/btnKrug"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:text="⚫"
+                android:textSize="22sp"
+                android:textAllCaps="false"
+                android:padding="0dp"
+                android:layout_marginHorizontal="2dp"/>
+
+            <Button
+                android:id="@+id/btnSrce"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:text="♥"
+                android:textSize="22sp"
+                android:textColor="#E53935"
+                android:textAllCaps="false"
+                android:padding="0dp"
+                android:layout_marginHorizontal="2dp"/>
+
+            <Button
+                android:id="@+id/btnTrougao"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:text="🔺"
+                android:textSize="22sp"
+                android:textAllCaps="false"
+                android:padding="0dp"
+                android:layout_marginHorizontal="2dp"/>
+
+            <Button
+                android:id="@+id/btnZvezda"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:text="⭐"
+                android:textSize="22sp"
+                android:textAllCaps="false"
+                android:padding="0dp"
+                android:layout_marginHorizontal="2dp"/>
+
+            <Button
+                android:id="@+id/btnKvadrat"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:text="◼"
+                android:textSize="22sp"
+                android:textColor="#1A1A1A"
+                android:textAllCaps="false"
+                android:padding="0dp"
+                android:layout_marginHorizontal="2dp"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="8dp">
+
+            <Button
+                android:id="@+id/btnClear"
+                android:layout_width="0dp"
+                android:layout_height="55dp"
+                android:layout_weight="1"
+                android:text="Briši"
+                android:textAllCaps="false"
+                android:textSize="16sp"
+                android:layout_marginEnd="8dp"/>
+
+            <Button
+                android:id="@+id/btnConfirm"
+                android:layout_width="0dp"
+                android:layout_height="55dp"
+                android:layout_weight="1"
+                android:text="Potvrdi"
+                android:textAllCaps="false"
+                android:textSize="16sp"
+                android:layout_marginStart="8dp"/>
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnBack"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:text="Nazad"
+            android:textAllCaps="false"
+            android:textSize="16sp"/>
+
+    </LinearLayout>
+
+</LinearLayout>
