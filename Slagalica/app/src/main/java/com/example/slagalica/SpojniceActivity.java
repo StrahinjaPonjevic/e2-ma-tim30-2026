@@ -8,15 +8,29 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.android.material.progressindicator.CircularProgressIndicator;
+
 public class SpojniceActivity extends AppCompatActivity {
 
-    private TextView tvRound;
+    private TextView tvPlayer1Name;
+    private TextView tvPlayer1Score;
+    private TextView tvPlayer2Name;
+    private TextView tvPlayer2Score;
+    private TextView tvRoundLabel;
     private TextView tvTimer;
-    private TextView tvScore;
+    private CircularProgressIndicator progressTimer;
     private TextView tvSelected;
 
-    private Button btnLeft1, btnLeft2, btnLeft3, btnLeft4, btnLeft5;
-    private Button btnRight1, btnRight2, btnRight3, btnRight4, btnRight5;
+    private Button btnLeft1;
+    private Button btnLeft2;
+    private Button btnLeft3;
+    private Button btnLeft4;
+    private Button btnLeft5;
+    private Button btnRight1;
+    private Button btnRight2;
+    private Button btnRight3;
+    private Button btnRight4;
+    private Button btnRight5;
     private Button btnNextRound;
     private Button btnBack;
 
@@ -32,16 +46,28 @@ public class SpojniceActivity extends AppCompatActivity {
     // 2 Andrić -> Na Drini ćuprija
     // 3 Mocart -> Muzika
     // 4 Einstein -> Relativnost
-    private int[] correctRightForLeft = {2, 0, 4, 3, 1};
+    private final int[] correctRightForLeft = {2, 0, 4, 3, 1};
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_spojnice);
 
-        tvRound = findViewById(R.id.tvRound);
+        bindViews();
+        setupHeader();
+        setupLeftButtons();
+        setupRightButtons();
+        bindActionButtons();
+    }
+
+    private void bindViews() {
+        tvPlayer1Name = findViewById(R.id.tvPlayer1Name);
+        tvPlayer1Score = findViewById(R.id.tvPlayer1Score);
+        tvPlayer2Name = findViewById(R.id.tvPlayer2Name);
+        tvPlayer2Score = findViewById(R.id.tvPlayer2Score);
+        tvRoundLabel = findViewById(R.id.tvRoundLabel);
         tvTimer = findViewById(R.id.tvTimer);
-        tvScore = findViewById(R.id.tvScore);
+        progressTimer = findViewById(R.id.progressTimer);
         tvSelected = findViewById(R.id.tvSelected);
 
         btnLeft1 = findViewById(R.id.btnLeft1);
@@ -58,10 +84,19 @@ public class SpojniceActivity extends AppCompatActivity {
 
         btnNextRound = findViewById(R.id.btnNextRound);
         btnBack = findViewById(R.id.btnBack);
+    }
 
-        setupLeftButtons();
-        setupRightButtons();
+    private void setupHeader() {
+        tvPlayer1Name.setText("Igrač 1");
+        tvPlayer2Name.setText("Igrač 2");
+        tvRoundLabel.setText("RUNDA 1/2 — SPOJNICE");
+        tvTimer.setText("30");
+        progressTimer.setMax(30);
+        progressTimer.setProgress(30);
+        updateScoreViews();
+    }
 
+    private void bindActionButtons() {
         btnNextRound.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -167,7 +202,7 @@ public class SpojniceActivity extends AppCompatActivity {
 
         if (correctRightForLeft[selectedLeftIndex] == rightIndex) {
             score += 2;
-            tvScore.setText("Bodovi: " + score);
+            updateScoreViews();
 
             Toast.makeText(this, "Tačan spoj! +2 boda", Toast.LENGTH_SHORT).show();
 
@@ -185,8 +220,9 @@ public class SpojniceActivity extends AppCompatActivity {
     private void goToNextRound() {
         if (round == 1) {
             round = 2;
-            tvRound.setText("Runda 2/2");
-            tvTimer.setText("Vreme: 30s");
+            tvRoundLabel.setText("RUNDA 2/2 — SPOJNICE");
+            tvTimer.setText("30");
+            progressTimer.setProgress(30);
 
             resetButtons();
 
@@ -212,5 +248,10 @@ public class SpojniceActivity extends AppCompatActivity {
         selectedLeftIndex = -1;
         selectedLeftButton = null;
         tvSelected.setText("Izabrano: ništa");
+    }
+
+    private void updateScoreViews() {
+        tvPlayer1Score.setText(score + " bodova");
+        tvPlayer2Score.setText("0 bodova");
     }
 }
