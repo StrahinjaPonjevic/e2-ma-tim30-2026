@@ -3,22 +3,27 @@ package com.example.slagalica;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.CountDownTimer;
-import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.example.slagalica.koznazna.InMemoryQuizQuestionRepository;
-import com.example.slagalica.koznazna.KoZnaZnaGame;
+import com.example.slagalica.auth.FirebaseManager;
+import com.example.slagalica.koznazna.FirestoreQuizQuestionRepository;
+import com.example.slagalica.koznazna.KoZnaZnaEvaluator;
+import com.example.slagalica.koznazna.KoZnaZnaSessionRepository;
 import com.example.slagalica.koznazna.QuizQuestion;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.ListenerRegistration;
+
+import java.util.List;
 
 public class KoZnaZnaActivity extends AppCompatActivity {
 
-    private static final long QUESTION_DURATION_MS = 5_000L;
-    private static final long TIMER_TICK_MS = 100L;
+    private static final int QUESTION_COUNT = 5;
+    private static final int QUESTION_DURATION_SECONDS = 5;
 
     private TextView tvPlayer1Name;
     private TextView tvPlayer1Score;
@@ -38,23 +43,51 @@ public class KoZnaZnaActivity extends AppCompatActivity {
     private Button btnNextQuestion;
     private Button btnBack;
 
-    private KoZnaZnaGame game;
+    private FirebaseManager firebaseManager;
+    private FirestoreQuizQuestionRepository questionRepository;
+    private KoZnaZnaSessionRepository sessionRepository;
+
+    private String sessionId;
+    private boolean isOwner;
+    private String currentUserId;
+    private ListenerRegistration gameListener;
     private CountDownTimer countDownTimer;
-    private long timeLeftMs;
-    private boolean questionFinished = false;
-    private int activePlayerIndex = KoZnaZnaGame.PLAYER_ONE;
+
+    private KoZnaZnaSessionRepository.SessionInfo sessionInfo;
+    private KoZnaZnaSessionRepository.GameState currentState;
+    private String lastObservedPhase;
+    private int lastObservedQuestionIndex = -1;
+    private boolean resolutionRequested = false;
+    private long currentQuestionStartedAtMs = 0L;
+    private Integer pendingLocalAnswerIndex;
+    private Long pendingLocalAnswerTimeMs;
+    private boolean waitingForGameRetryScheduled = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_ko_zna_zna);
 
-        game = new KoZnaZnaGame(new InMemoryQuizQuestionRepository().getQuestions());
+        firebaseManager = new FirebaseManager();
+        questionRepository = new FirestoreQuizQuestionRepository();
+        sessionRepository = new KoZnaZnaSessionRepository();
+
+        sessionId = getIntent().getStringExtra("sessionId");
+        isOwner = getIntent().getBooleanExtra("isOwner", true);
+
+        FirebaseUser currentUser = firebaseManager.getCurrentUser();
+        if (currentUser == null || sessionId == null || sessionId.isEmpty()) {
+            Toast.makeText(this, "Sesija nije pronađena", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
+        currentUserId = currentUser.getUid();
 
         bindViews();
-        setupHeader();
         bindListeners();
-        startQuestion();
+        setupInitialHeader();
+        loadSessionAndStart();
     }
 
     private void bindViews() {
@@ -77,97 +110,353 @@ public class KoZnaZnaActivity extends AppCompatActivity {
         btnBack = findViewById(R.id.btnBack);
     }
 
-    private void setupHeader() {
-        tvPlayer1Name.setText("Igrač 1");
-        tvPlayer2Name.setText("Igrač 2");
-        tvRoundLabel.setText("RUNDA 1/1 — KO ZNA ZNA");
-        updateScoreViews();
-    }
-
     private void bindListeners() {
-        btnAnswerA.setOnClickListener(v -> handleAnswer(0));
-        btnAnswerB.setOnClickListener(v -> handleAnswer(1));
-        btnAnswerC.setOnClickListener(v -> handleAnswer(2));
-        btnAnswerD.setOnClickListener(v -> handleAnswer(3));
+        btnAnswerA.setOnClickListener(v -> submitAnswer(0));
+        btnAnswerB.setOnClickListener(v -> submitAnswer(1));
+        btnAnswerC.setOnClickListener(v -> submitAnswer(2));
+        btnAnswerD.setOnClickListener(v -> submitAnswer(3));
 
-        btnNextQuestion.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (!questionFinished) {
-                    return;
-                }
-
-                if (game.hasNextQuestion()) {
-                    game.moveToNextQuestion();
-                    startQuestion();
-                } else {
-                    Toast.makeText(
-                            KoZnaZnaActivity.this,
-                            buildFinalResultMessage(),
-                            Toast.LENGTH_LONG
-                    ).show();
-                }
-            }
-        });
-
+        btnNextQuestion.setOnClickListener(v -> handleNextQuestionClick());
         btnBack.setOnClickListener(v -> finish());
     }
 
-    private void startQuestion() {
+    private void setupInitialHeader() {
+        tvPlayer1Name.setText("Igrač 1");
+        tvPlayer2Name.setText("Igrač 2");
+        tvRoundLabel.setText("RUNDA 1/1 — KO ZNA ZNA");
+        tvQuestionCounter.setText("Pitanje 1/" + QUESTION_COUNT);
+        tvTurnInfo.setText("Učitavanje pitanja...");
+        tvTimer.setText(String.valueOf(QUESTION_DURATION_SECONDS));
+        progressTimer.setMax(QUESTION_DURATION_SECONDS);
+        progressTimer.setProgress(QUESTION_DURATION_SECONDS);
+        updateScoreViews(0, 0);
+        btnNextQuestion.setEnabled(false);
+    }
+
+    private void loadSessionAndStart() {
+        sessionRepository.loadSessionInfo(sessionId, new KoZnaZnaSessionRepository.SessionInfoCallback() {
+            @Override
+            public void onSuccess(KoZnaZnaSessionRepository.SessionInfo info) {
+                sessionInfo = info;
+                updatePlayerNames();
+                observeGame();
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> {
+                    Toast.makeText(KoZnaZnaActivity.this, message, Toast.LENGTH_LONG).show();
+                    finish();
+                });
+            }
+        });
+    }
+
+    private void observeGame() {
+        gameListener = sessionRepository.observeGame(sessionId, new KoZnaZnaSessionRepository.GameStateListener() {
+            @Override
+            public void onGameStateChanged(KoZnaZnaSessionRepository.GameState gameState) {
+                runOnUiThread(() -> handleGameState(gameState));
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> Toast.makeText(KoZnaZnaActivity.this, message, Toast.LENGTH_SHORT).show());
+            }
+        });
+    }
+
+    private void handleGameState(KoZnaZnaSessionRepository.GameState gameState) {
+        if (gameState == null) {
+            if (isOwner && sessionInfo != null) {
+                initializeGame();
+            } else {
+                showWaitingForGameState();
+                scheduleGameRefreshRetry();
+            }
+            return;
+        }
+
+        waitingForGameRetryScheduled = false;
+        currentState = gameState;
+        updatePlayerNames();
+        updateScoreViews(gameState.ownerScore, gameState.guestScore);
+
+        if ("question_active".equals(gameState.phase)) {
+            boolean questionChanged = !gameState.phase.equals(lastObservedPhase)
+                    || gameState.currentQuestionIndex != lastObservedQuestionIndex;
+            if (questionChanged) {
+                resolutionRequested = false;
+                pendingLocalAnswerIndex = null;
+                pendingLocalAnswerTimeMs = null;
+                startQuestion(gameState);
+            } else {
+                updateWaitingState(gameState);
+            }
+
+            if (isOwner && shouldResolveQuestion(gameState)) {
+                resolveCurrentQuestion(gameState);
+            }
+        } else if ("question_result".equals(gameState.phase)) {
+            stopTimer();
+            pendingLocalAnswerIndex = null;
+            pendingLocalAnswerTimeMs = null;
+            showQuestionResult(gameState);
+            resolutionRequested = false;
+        } else if ("finished".equals(gameState.phase)) {
+            stopTimer();
+            pendingLocalAnswerIndex = null;
+            pendingLocalAnswerTimeMs = null;
+            showFinalResult(gameState);
+            resolutionRequested = false;
+        }
+
+        lastObservedPhase = gameState.phase;
+        lastObservedQuestionIndex = gameState.currentQuestionIndex;
+    }
+
+    private void initializeGame() {
+        tvTurnInfo.setText("Priprema pitanja iz baze...");
+        enableAnswerButtons(false);
+        questionRepository.loadQuestions(QUESTION_COUNT, new FirestoreQuizQuestionRepository.LoadQuestionsCallback() {
+            @Override
+            public void onSuccess(List<QuizQuestion> questions) {
+                sessionRepository.initializeGame(sessionId, sessionInfo, questions,
+                        new KoZnaZnaSessionRepository.RepositoryCallback() {
+                            @Override
+                            public void onSuccess() {
+                            }
+
+                            @Override
+                            public void onError(String message) {
+                                runOnUiThread(() -> Toast.makeText(KoZnaZnaActivity.this, message, Toast.LENGTH_LONG).show());
+                            }
+                        });
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> Toast.makeText(KoZnaZnaActivity.this, message, Toast.LENGTH_LONG).show());
+            }
+        });
+    }
+
+    private void startQuestion(KoZnaZnaSessionRepository.GameState gameState) {
         stopTimer();
 
-        QuizQuestion question = game.getCurrentQuestion();
-        questionFinished = false;
-        activePlayerIndex = KoZnaZnaGame.PLAYER_ONE;
-        timeLeftMs = QUESTION_DURATION_MS;
+        QuizQuestion question = getCurrentQuestion(gameState);
+        if (question == null) {
+            tvTurnInfo.setText("Pitanje nije pronađeno.");
+            enableAnswerButtons(false);
+            return;
+        }
 
-        tvQuestionCounter.setText(
-                "Pitanje " + game.getCurrentQuestionNumber() + "/" + game.getQuestionCount()
-        );
-        tvTurnInfo.setText("Na potezu: Igrač 1");
+        currentQuestionStartedAtMs = System.currentTimeMillis();
+        tvQuestionCounter.setText("Pitanje " + (gameState.currentQuestionIndex + 1) + "/" + gameState.questions.size());
         tvQuestion.setText(question.getText());
-
-        String[] answers = question.getAnswers();
-        btnAnswerA.setText("A) " + answers[0]);
-        btnAnswerB.setText("B) " + answers[1]);
-        btnAnswerC.setText("C) " + answers[2]);
-        btnAnswerD.setText("D) " + answers[3]);
-
+        btnAnswerA.setText("A) " + question.getAnswers()[0]);
+        btnAnswerB.setText("B) " + question.getAnswers()[1]);
+        btnAnswerC.setText("C) " + question.getAnswers()[2]);
+        btnAnswerD.setText("D) " + question.getAnswers()[3]);
         btnNextQuestion.setEnabled(false);
-        btnNextQuestion.setText(game.hasNextQuestion() ? "Sledeće pitanje" : "Prikaži rezultat");
-
-        enableAnswerButtons(true);
+        btnNextQuestion.setText(isOwner && hasMoreQuestions(gameState) ? "Sledeće pitanje" : "Prikaži rezultat");
         resetTimerStyle();
+        updateWaitingState(gameState);
         startTimer();
     }
 
-    private void handleAnswer(int answerIndex) {
-        if (questionFinished) {
+    private void showWaitingForGameState() {
+        currentState = null;
+        enableAnswerButtons(false);
+        btnNextQuestion.setEnabled(false);
+        tvQuestionCounter.setText("Pitanje 1/" + QUESTION_COUNT);
+        tvQuestion.setText("Čekanje da vlasnik sesije pokrene partiju...");
+        tvTurnInfo.setText("Čekanje da protivnik pokrene igru...");
+        tvTimer.setText(String.valueOf(QUESTION_DURATION_SECONDS));
+        progressTimer.setMax(QUESTION_DURATION_SECONDS);
+        progressTimer.setProgress(QUESTION_DURATION_SECONDS);
+    }
+
+    private void scheduleGameRefreshRetry() {
+        if (waitingForGameRetryScheduled || isOwner) {
             return;
         }
 
-        long elapsedMs = QUESTION_DURATION_MS - timeLeftMs;
-        game.recordAnswer(activePlayerIndex, answerIndex, elapsedMs);
+        waitingForGameRetryScheduled = true;
+        tvQuestion.postDelayed(() -> {
+            waitingForGameRetryScheduled = false;
+            if (currentState == null) {
+                refreshGameStateOnce();
+            }
+        }, 1200);
+    }
 
-        if (activePlayerIndex == KoZnaZnaGame.PLAYER_ONE) {
-            activePlayerIndex = KoZnaZnaGame.PLAYER_TWO;
-            tvTurnInfo.setText("Na potezu: Igrač 2");
-            Toast.makeText(this, "Igrač 1 je odgovorio. Sada odgovara Igrač 2.", Toast.LENGTH_SHORT).show();
+    private void refreshGameStateOnce() {
+        sessionRepository.fetchGameOnce(sessionId, new KoZnaZnaSessionRepository.GameStateListener() {
+            @Override
+            public void onGameStateChanged(KoZnaZnaSessionRepository.GameState gameState) {
+                runOnUiThread(() -> handleGameState(gameState));
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> {
+                    Toast.makeText(KoZnaZnaActivity.this, message, Toast.LENGTH_SHORT).show();
+                    scheduleGameRefreshRetry();
+                });
+            }
+        });
+    }
+
+    private void updateWaitingState(KoZnaZnaSessionRepository.GameState gameState) {
+        boolean iAnswered = isCurrentUserAnswered(gameState);
+        enableAnswerButtons(!iAnswered);
+
+        if (iAnswered) {
+            tvTurnInfo.setText("Odgovor je poslat. Čekanje protivnika...");
+        } else {
+            tvTurnInfo.setText("Odgovorite na pitanje u roku od 5 sekundi.");
+        }
+    }
+
+    private void submitAnswer(int answerIndex) {
+        if (currentState == null || !"question_active".equals(currentState.phase)) {
             return;
         }
 
-        finishQuestion(false);
+        if (isCurrentUserAnswered(currentState)) {
+            return;
+        }
+
+        long answerTimeMs = Math.max(0L, System.currentTimeMillis() - currentQuestionStartedAtMs);
+        pendingLocalAnswerIndex = answerIndex;
+        pendingLocalAnswerTimeMs = answerTimeMs;
+        sessionRepository.submitAnswer(sessionId, isOwner, answerIndex, answerTimeMs);
+        enableAnswerButtons(false);
+        tvTurnInfo.setText("Odgovor je poslat. Čekanje protivnika...");
+    }
+
+    private void handleNextQuestionClick() {
+        if (currentState == null || !"question_result".equals(currentState.phase) || !isOwner) {
+            return;
+        }
+
+        if (hasMoreQuestions(currentState)) {
+            sessionRepository.startNextQuestion(sessionId, currentState.currentQuestionIndex + 1,
+                    new KoZnaZnaSessionRepository.RepositoryCallback() {
+                        @Override
+                        public void onSuccess() {
+                        }
+
+                        @Override
+                        public void onError(String message) {
+                            runOnUiThread(() -> Toast.makeText(KoZnaZnaActivity.this, message, Toast.LENGTH_SHORT).show());
+                        }
+                    });
+        } else {
+            String winner = determineWinner(currentState.ownerScore, currentState.guestScore);
+            sessionRepository.finishGame(sessionId, currentState.ownerScore, currentState.guestScore, winner,
+                    new KoZnaZnaSessionRepository.RepositoryCallback() {
+                        @Override
+                        public void onSuccess() {
+                        }
+
+                        @Override
+                        public void onError(String message) {
+                            runOnUiThread(() -> Toast.makeText(KoZnaZnaActivity.this, message, Toast.LENGTH_SHORT).show());
+                        }
+                    });
+        }
+    }
+
+    private boolean shouldResolveQuestion(KoZnaZnaSessionRepository.GameState gameState) {
+        Integer ownerAnswerIndex = gameState.ownerAnswerIndex;
+        if (ownerAnswerIndex == null && isOwner && pendingLocalAnswerIndex != null) {
+            ownerAnswerIndex = pendingLocalAnswerIndex;
+        }
+
+        return !resolutionRequested
+                && ownerAnswerIndex != null
+                && gameState.guestAnswerIndex != null;
+    }
+
+    private void resolveCurrentQuestion(KoZnaZnaSessionRepository.GameState gameState) {
+        QuizQuestion question = getCurrentQuestion(gameState);
+        if (question == null) {
+            return;
+        }
+
+        resolutionRequested = true;
+        Integer ownerAnswerIndex = gameState.ownerAnswerIndex;
+        Long ownerAnswerTimeMs = gameState.ownerAnswerTimeMs;
+        if (ownerAnswerIndex == null && isOwner && pendingLocalAnswerIndex != null) {
+            ownerAnswerIndex = pendingLocalAnswerIndex;
+            ownerAnswerTimeMs = pendingLocalAnswerTimeMs;
+        }
+
+        KoZnaZnaEvaluator.EvaluationResult result = KoZnaZnaEvaluator.evaluate(
+                question,
+                ownerAnswerIndex,
+                ownerAnswerTimeMs,
+                gameState.guestAnswerIndex,
+                gameState.guestAnswerTimeMs
+        );
+
+        sessionRepository.publishQuestionResult(sessionId, gameState, result,
+                new KoZnaZnaSessionRepository.RepositoryCallback() {
+                    @Override
+                    public void onSuccess() {
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        resolutionRequested = false;
+                        runOnUiThread(() -> Toast.makeText(KoZnaZnaActivity.this, message, Toast.LENGTH_SHORT).show());
+                    }
+                });
+    }
+
+    private void showQuestionResult(KoZnaZnaSessionRepository.GameState gameState) {
+        QuizQuestion question = getCurrentQuestion(gameState);
+        if (question != null) {
+            tvQuestion.setText(question.getText());
+            btnAnswerA.setText("A) " + question.getAnswers()[0]);
+            btnAnswerB.setText("B) " + question.getAnswers()[1]);
+            btnAnswerC.setText("C) " + question.getAnswers()[2]);
+            btnAnswerD.setText("D) " + question.getAnswers()[3]);
+        }
+
+        tvQuestionCounter.setText("Pitanje " + (gameState.currentQuestionIndex + 1) + "/" + gameState.questions.size());
+        tvTurnInfo.setText(gameState.resultMessage != null && !gameState.resultMessage.isEmpty()
+                ? gameState.resultMessage
+                : "Pitanje je završeno.");
+        enableAnswerButtons(false);
+
+        if (isOwner) {
+            btnNextQuestion.setEnabled(true);
+            btnNextQuestion.setText(hasMoreQuestions(gameState) ? "Sledeće pitanje" : "Prikaži rezultat");
+        } else {
+            btnNextQuestion.setEnabled(false);
+            btnNextQuestion.setText("Čekanje vlasnika sesije...");
+        }
+    }
+
+    private void showFinalResult(KoZnaZnaSessionRepository.GameState gameState) {
+        enableAnswerButtons(false);
+        btnNextQuestion.setEnabled(false);
+        btnNextQuestion.setText("Kraj igre");
+        tvQuestionCounter.setText("Partija završena");
+        tvTurnInfo.setText(buildFinalResultMessage(gameState));
     }
 
     private void startTimer() {
-        progressTimer.setMax((int) (QUESTION_DURATION_MS / 1000));
-        progressTimer.setProgress((int) (QUESTION_DURATION_MS / 1000));
-        tvTimer.setText(String.valueOf(QUESTION_DURATION_MS / 1000));
+        progressTimer.setMax(QUESTION_DURATION_SECONDS);
+        progressTimer.setProgress(QUESTION_DURATION_SECONDS);
+        tvTimer.setText(String.valueOf(QUESTION_DURATION_SECONDS));
 
-        countDownTimer = new CountDownTimer(QUESTION_DURATION_MS, TIMER_TICK_MS) {
+        countDownTimer = new CountDownTimer(QUESTION_DURATION_SECONDS * 1000L, 100L) {
             @Override
             public void onTick(long millisUntilFinished) {
-                timeLeftMs = millisUntilFinished;
                 int secondsLeft = (int) Math.ceil(millisUntilFinished / 1000.0);
                 tvTimer.setText(String.valueOf(secondsLeft));
                 progressTimer.setProgress(secondsLeft);
@@ -180,43 +469,43 @@ public class KoZnaZnaActivity extends AppCompatActivity {
 
             @Override
             public void onFinish() {
-                timeLeftMs = 0L;
                 tvTimer.setText("0");
                 progressTimer.setProgress(0);
-                finishQuestion(true);
+                enableAnswerButtons(false);
+
+                if (isOwner && currentState != null && "question_active".equals(currentState.phase) && !resolutionRequested) {
+                    tvTurnInfo.setText("Vreme je isteklo. Zaključavanje pitanja...");
+                    tvTimer.postDelayed(() -> {
+                        if (currentState != null && "question_active".equals(currentState.phase) && !resolutionRequested) {
+                            resolveCurrentQuestion(currentState);
+                        }
+                    }, 350);
+                } else {
+                    tvTurnInfo.setText("Vreme je isteklo. Čekanje zaključavanja pitanja...");
+                }
             }
         }.start();
     }
 
-    private void finishQuestion(boolean timeExpired) {
-        if (questionFinished) {
+    private void stopTimer() {
+        if (countDownTimer != null) {
+            countDownTimer.cancel();
+            countDownTimer = null;
+        }
+    }
+
+    private void updatePlayerNames() {
+        if (sessionInfo == null) {
             return;
         }
 
-        questionFinished = true;
-        stopTimer();
-        enableAnswerButtons(false);
-
-        boolean playerOneAnswered = game.hasPlayerAnswered(KoZnaZnaGame.PLAYER_ONE);
-        boolean playerTwoAnswered = game.hasPlayerAnswered(KoZnaZnaGame.PLAYER_TWO);
-        KoZnaZnaGame.QuestionOutcome outcome = game.finishCurrentQuestion();
-        updateScoreViews();
-
-        if (timeExpired && !playerOneAnswered && !playerTwoAnswered) {
-            tvTurnInfo.setText("Vreme je isteklo. Niko nije odgovorio.");
-        } else if (timeExpired) {
-            tvTurnInfo.setText("Vreme je isteklo. Pitanje je zaključeno.");
-        } else {
-            tvTurnInfo.setText("Pitanje je završeno.");
-        }
-
-        btnNextQuestion.setEnabled(true);
-        Toast.makeText(this, outcome.getSummary(), Toast.LENGTH_LONG).show();
+        tvPlayer1Name.setText(sessionInfo.ownerUsername != null ? sessionInfo.ownerUsername : "Igrač 1");
+        tvPlayer2Name.setText(sessionInfo.guestUsername != null ? sessionInfo.guestUsername : "Igrač 2");
     }
 
-    private void updateScoreViews() {
-        tvPlayer1Score.setText(game.getPlayerScore(KoZnaZnaGame.PLAYER_ONE) + " bodova");
-        tvPlayer2Score.setText(game.getPlayerScore(KoZnaZnaGame.PLAYER_TWO) + " bodova");
+    private void updateScoreViews(int ownerScore, int guestScore) {
+        tvPlayer1Score.setText(ownerScore + " bodova");
+        tvPlayer2Score.setText(guestScore + " bodova");
     }
 
     private void enableAnswerButtons(boolean enabled) {
@@ -231,28 +520,54 @@ public class KoZnaZnaActivity extends AppCompatActivity {
         progressTimer.setIndicatorColor(Color.parseColor("#6200EE"));
     }
 
-    private void stopTimer() {
-        if (countDownTimer != null) {
-            countDownTimer.cancel();
-            countDownTimer = null;
-        }
+    private boolean isCurrentUserAnswered(KoZnaZnaSessionRepository.GameState gameState) {
+        return isOwner ? gameState.ownerAnswerIndex != null : gameState.guestAnswerIndex != null;
     }
 
-    private String buildFinalResultMessage() {
-        int playerOne = game.getPlayerScore(KoZnaZnaGame.PLAYER_ONE);
-        int playerTwo = game.getPlayerScore(KoZnaZnaGame.PLAYER_TWO);
+    private QuizQuestion getCurrentQuestion(KoZnaZnaSessionRepository.GameState gameState) {
+        if (gameState.questions == null
+                || gameState.currentQuestionIndex < 0
+                || gameState.currentQuestionIndex >= gameState.questions.size()) {
+            return null;
+        }
+        return gameState.questions.get(gameState.currentQuestionIndex);
+    }
 
-        if (playerOne == playerTwo) {
-            return "Kraj igre! Nerešeno je: " + playerOne + " : " + playerTwo;
+    private boolean hasMoreQuestions(KoZnaZnaSessionRepository.GameState gameState) {
+        return gameState.currentQuestionIndex < gameState.questions.size() - 1;
+    }
+
+    private String determineWinner(int ownerScore, int guestScore) {
+        if (ownerScore > guestScore) {
+            return "owner";
+        }
+        if (guestScore > ownerScore) {
+            return "guest";
+        }
+        return "draw";
+    }
+
+    private String buildFinalResultMessage(KoZnaZnaSessionRepository.GameState gameState) {
+        if ("draw".equals(gameState.winner)) {
+            return "Nerešeno! Rezultat je " + gameState.ownerScore + " : " + gameState.guestScore;
         }
 
-        int winner = playerOne > playerTwo ? 1 : 2;
-        return "Kraj igre! Pobedio je Igrač " + winner + ". Rezultat je " + playerOne + " : " + playerTwo;
+        boolean currentUserWon = (isOwner && "owner".equals(gameState.winner))
+                || (!isOwner && "guest".equals(gameState.winner));
+
+        if (currentUserWon) {
+            return "Pobedili ste! Rezultat je " + gameState.ownerScore + " : " + gameState.guestScore;
+        }
+
+        return "Izgubili ste. Rezultat je " + gameState.ownerScore + " : " + gameState.guestScore;
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
         stopTimer();
+        if (gameListener != null) {
+            gameListener.remove();
+        }
     }
 }
