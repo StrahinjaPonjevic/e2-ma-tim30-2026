@@ -125,6 +125,10 @@ public class KoZnaZnaSessionRepository {
         gameData.put("guestAnswerIndex", null);
         gameData.put("ownerAnswerTimeMs", null);
         gameData.put("guestAnswerTimeMs", null);
+        gameData.put("ownerCorrectAnswers", 0);
+        gameData.put("ownerWrongAnswers", 0);
+        gameData.put("guestCorrectAnswers", 0);
+        gameData.put("guestWrongAnswers", 0);
         gameData.put("resultMessage", "");
         gameData.put("gameFinished", false);
         gameData.put("winner", null);
@@ -150,10 +154,28 @@ public class KoZnaZnaSessionRepository {
 
     public void publishQuestionResult(String sessionId, GameState state,
                                       KoZnaZnaEvaluator.EvaluationResult result, RepositoryCallback callback) {
+        QuizQuestion currentQuestion = null;
+        if (state.questions != null
+                && state.currentQuestionIndex >= 0
+                && state.currentQuestionIndex < state.questions.size()) {
+            currentQuestion = state.questions.get(state.currentQuestionIndex);
+        }
+
+        boolean ownerCorrect = currentQuestion != null
+                && state.ownerAnswerIndex != null
+                && state.ownerAnswerIndex == currentQuestion.getCorrectAnswerIndex();
+        boolean guestCorrect = currentQuestion != null
+                && state.guestAnswerIndex != null
+                && state.guestAnswerIndex == currentQuestion.getCorrectAnswerIndex();
+
         Map<String, Object> updates = new HashMap<>();
         updates.put("phase", "question_result");
         updates.put("ownerScore", state.ownerScore + result.getOwnerDelta());
         updates.put("guestScore", state.guestScore + result.getGuestDelta());
+        updates.put("ownerCorrectAnswers", state.ownerCorrectAnswers + (ownerCorrect ? 1 : 0));
+        updates.put("ownerWrongAnswers", state.ownerWrongAnswers + (!ownerCorrect && state.ownerAnswerIndex != null ? 1 : 0));
+        updates.put("guestCorrectAnswers", state.guestCorrectAnswers + (guestCorrect ? 1 : 0));
+        updates.put("guestWrongAnswers", state.guestWrongAnswers + (!guestCorrect && state.guestAnswerIndex != null ? 1 : 0));
         updates.put("resultMessage", result.getResultMessage());
 
         db.collection(GAMES_COLLECTION).document(sessionId)
@@ -222,6 +244,10 @@ public class KoZnaZnaSessionRepository {
                 snapshot.getLong("guestAnswerIndex") != null ? snapshot.getLong("guestAnswerIndex").intValue() : null,
                 snapshot.getLong("ownerAnswerTimeMs"),
                 snapshot.getLong("guestAnswerTimeMs"),
+                snapshot.getLong("ownerCorrectAnswers") != null ? snapshot.getLong("ownerCorrectAnswers").intValue() : 0,
+                snapshot.getLong("ownerWrongAnswers") != null ? snapshot.getLong("ownerWrongAnswers").intValue() : 0,
+                snapshot.getLong("guestCorrectAnswers") != null ? snapshot.getLong("guestCorrectAnswers").intValue() : 0,
+                snapshot.getLong("guestWrongAnswers") != null ? snapshot.getLong("guestWrongAnswers").intValue() : 0,
                 snapshot.getString("resultMessage"),
                 Boolean.TRUE.equals(snapshot.getBoolean("gameFinished")),
                 snapshot.getString("winner"),
@@ -308,6 +334,10 @@ public class KoZnaZnaSessionRepository {
         public final Integer guestAnswerIndex;
         public final Long ownerAnswerTimeMs;
         public final Long guestAnswerTimeMs;
+        public final int ownerCorrectAnswers;
+        public final int ownerWrongAnswers;
+        public final int guestCorrectAnswers;
+        public final int guestWrongAnswers;
         public final String resultMessage;
         public final boolean gameFinished;
         public final String winner;
@@ -316,7 +346,8 @@ public class KoZnaZnaSessionRepository {
         public GameState(String sessionId, String ownerId, String guestId, String ownerUsername, String guestUsername,
                          String phase, int currentQuestionIndex, int ownerScore, int guestScore,
                          Integer ownerAnswerIndex, Integer guestAnswerIndex, Long ownerAnswerTimeMs,
-                         Long guestAnswerTimeMs, String resultMessage, boolean gameFinished,
+                         Long guestAnswerTimeMs, int ownerCorrectAnswers, int ownerWrongAnswers,
+                         int guestCorrectAnswers, int guestWrongAnswers, String resultMessage, boolean gameFinished,
                          String winner, List<QuizQuestion> questions) {
             this.sessionId = sessionId;
             this.ownerId = ownerId;
@@ -331,6 +362,10 @@ public class KoZnaZnaSessionRepository {
             this.guestAnswerIndex = guestAnswerIndex;
             this.ownerAnswerTimeMs = ownerAnswerTimeMs;
             this.guestAnswerTimeMs = guestAnswerTimeMs;
+            this.ownerCorrectAnswers = ownerCorrectAnswers;
+            this.ownerWrongAnswers = ownerWrongAnswers;
+            this.guestCorrectAnswers = guestCorrectAnswers;
+            this.guestWrongAnswers = guestWrongAnswers;
             this.resultMessage = resultMessage;
             this.gameFinished = gameFinished;
             this.winner = winner;

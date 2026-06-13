@@ -18,6 +18,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.auth.FirebaseManager;
 import com.example.slagalica.auth.SessionManager;
+import com.example.slagalica.profile.ProfileStatsUpdater;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FieldValue;
@@ -52,6 +53,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
     // Firebase
     private FirebaseManager firebaseManager;
     private SessionManager sessionManager;
+    private ProfileStatsUpdater profileStatsUpdater;
     private FirebaseFirestore db;
     private String sessionId;
     private boolean isOwner;
@@ -70,6 +72,8 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
     private int targetRound1, targetRound2;
     private int[] numbersRound1, numbersRound2;
     private Integer ownerResult, guestResult;
+    private int ownerExactHits = 0;
+    private int guestExactHits = 0;
     private boolean isMyTurn = false;
     private boolean submittedThisRound = false;
 
@@ -95,6 +99,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
 
         firebaseManager = new FirebaseManager();
         sessionManager = new SessionManager();
+        profileStatsUpdater = new ProfileStatsUpdater();
         db = FirebaseFirestore.getInstance();
 
         bindViews();
@@ -256,6 +261,10 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
                     ownerResult = or != null ? or.intValue() : null;
                     Long gr = snapshot.getLong("guestResult");
                     guestResult = gr != null ? gr.intValue() : null;
+                    ownerExactHits = snapshot.getLong("ownerExactHits") != null
+                            ? snapshot.getLong("ownerExactHits").intValue() : 0;
+                    guestExactHits = snapshot.getLong("guestExactHits") != null
+                            ? snapshot.getLong("guestExactHits").intValue() : 0;
 
                     if (snapshot.getString("ownerId") != null) ownerId = snapshot.getString("ownerId");
                     if (snapshot.getString("guestId") != null) guestId = snapshot.getString("guestId");
@@ -308,6 +317,8 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
         gameData.put("guestScore", 0);
         gameData.put("ownerResult", null);
         gameData.put("guestResult", null);
+        gameData.put("ownerExactHits", 0);
+        gameData.put("guestExactHits", 0);
         gameData.put("gameFinished", false);
         gameData.put("phaseStartedAt", FieldValue.serverTimestamp());
 
@@ -641,6 +652,8 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
         Map<String, Object> updates = new HashMap<>();
         updates.put("ownerScore", ownerScore);
         updates.put("guestScore", guestScore);
+        updates.put("ownerExactHits", ownerExactHits + (ownerExact ? 1 : 0));
+        updates.put("guestExactHits", guestExactHits + (guestExact ? 1 : 0));
         updates.put("currentRound", 2);
         updates.put("phase", "r2_intro");
         updates.put("phaseStartedAt", FieldValue.serverTimestamp());
@@ -679,11 +692,26 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
         Map<String, Object> updates = new HashMap<>();
         updates.put("ownerScore", ownerScore);
         updates.put("guestScore", guestScore);
+        updates.put("ownerExactHits", ownerExactHits + (ownerExact ? 1 : 0));
+        updates.put("guestExactHits", guestExactHits + (guestExact ? 1 : 0));
         updates.put("gameFinished", true);
         updates.put("winner", winner);
         updates.put("phase", "finished");
         updates.put("phaseStartedAt", FieldValue.serverTimestamp());
-        db.collection("games").document(sessionId).update(updates);
+        db.collection("games").document(sessionId).update(updates)
+                .addOnSuccessListener(unused -> {
+                    if (ownerId != null && guestId != null) {
+                        profileStatsUpdater.recordMojBroj(
+                                ownerId,
+                                guestId,
+                                ownerScore,
+                                guestScore,
+                                winner,
+                                ownerExactHits + (ownerExact ? 1 : 0),
+                                guestExactHits + (guestExact ? 1 : 0)
+                        );
+                    }
+                });
     }
 
     private void showGameResult(String winner) {

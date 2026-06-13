@@ -102,6 +102,19 @@ public class FirebaseManager {
         userData.put("email", email);
         userData.put("username", username);
         userData.put("region", region);
+        userData.put("avatarTheme", 0);
+        userData.put("tokens", 5);
+        userData.put("stars", 0);
+        userData.put("matchesPlayed", 0);
+        userData.put("wins", 0);
+        userData.put("losses", 0);
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("koZnaZna", createStatsMap());
+        stats.put("spojnice", createStatsMap());
+        stats.put("mojBroj", createStatsMap());
+        stats.put("korakPoKorak", createStatsMap());
+        userData.put("stats", stats);
 
         db.collection(USERS_COLLECTION).document(uid)
                 .set(userData)
@@ -116,6 +129,26 @@ public class FirebaseManager {
                         }
                     }
                 });
+    }
+
+    private Map<String, Object> createStatsMap() {
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("gamesPlayed", 0);
+        stats.put("totalScore", 0);
+        stats.put("correctAnswers", 0);
+        stats.put("wrongAnswers", 0);
+        stats.put("successfulLinks", 0);
+        stats.put("attemptedLinks", 0);
+        stats.put("exactHits", 0);
+        stats.put("roundsPlayed", 0);
+        stats.put("step1Hits", 0);
+        stats.put("step2Hits", 0);
+        stats.put("step3Hits", 0);
+        stats.put("step4Hits", 0);
+        stats.put("step5Hits", 0);
+        stats.put("step6Hits", 0);
+        stats.put("step7Hits", 0);
+        return stats;
     }
 
     private void sendVerificationEmail(AuthCallback callback) {

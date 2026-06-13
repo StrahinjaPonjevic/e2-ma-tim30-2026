@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.auth.FirebaseManager;
 import com.example.slagalica.auth.SessionManager;
+import com.example.slagalica.profile.ProfileStatsUpdater;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -39,6 +40,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
 
     private FirebaseManager firebaseManager;
     private SessionManager sessionManager;
+    private ProfileStatsUpdater profileStatsUpdater;
     private FirebaseFirestore db;
     private String sessionId;
     private boolean isOwner;
@@ -53,6 +55,8 @@ public class KorakPoKorakActivity extends AppCompatActivity {
     private String ownerId, guestId;
     private String[] cluesRound1, cluesRound2;
     private String answerRound1, answerRound2;
+    private final int[] ownerStepHits = new int[TOTAL_STEPS];
+    private final int[] guestStepHits = new int[TOTAL_STEPS];
     private boolean isMyTurn = false;
     private boolean isStealTurn = false;
     private boolean gameFinished = false;
@@ -67,6 +71,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
 
         firebaseManager = new FirebaseManager();
         sessionManager = new SessionManager();
+        profileStatsUpdater = new ProfileStatsUpdater();
         db = FirebaseFirestore.getInstance();
 
         bindViews();
@@ -180,6 +185,12 @@ public class KorakPoKorakActivity extends AppCompatActivity {
                         cluesRound2 = castStringList(snapshot.get("cluesRound2"));
                         answerRound1 = snapshot.getString("answerRound1");
                         answerRound2 = snapshot.getString("answerRound2");
+                        for (int i = 0; i < TOTAL_STEPS; i++) {
+                            ownerStepHits[i] = snapshot.getLong("ownerStep" + (i + 1) + "Hits") != null
+                                    ? snapshot.getLong("ownerStep" + (i + 1) + "Hits").intValue() : 0;
+                            guestStepHits[i] = snapshot.getLong("guestStep" + (i + 1) + "Hits") != null
+                                    ? snapshot.getLong("guestStep" + (i + 1) + "Hits").intValue() : 0;
+                        }
                         if (snapshot.getString("ownerId") != null) ownerId = snapshot.getString("ownerId");
                         if (snapshot.getString("guestId") != null) guestId = snapshot.getString("guestId");
 
@@ -215,6 +226,10 @@ public class KorakPoKorakActivity extends AppCompatActivity {
         gameData.put("phase", "waiting_for_owner");
         gameData.put("ownerScore", 0);
         gameData.put("guestScore", 0);
+        for (int i = 0; i < TOTAL_STEPS; i++) {
+            gameData.put("ownerStep" + (i + 1) + "Hits", 0);
+            gameData.put("guestStep" + (i + 1) + "Hits", 0);
+        }
         gameData.put("gameFinished", false);
         gameData.put("phaseStartedAt", FieldValue.serverTimestamp());
 
@@ -475,6 +490,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
 
         final int pointsToAdd = points;
         final String phaseToSet = nextPhase;
+        final int solvedStep = !isStealTurn ? getCurrentStep() : -1;
 
         DocumentReference gameRef = db.collection("games").document(sessionId);
         gameRef.get().addOnSuccessListener(snapshot -> {
@@ -488,6 +504,12 @@ public class KorakPoKorakActivity extends AppCompatActivity {
                 updates.put("ownerScore", currentOwner + pointsToAdd);
             } else {
                 updates.put("guestScore", currentGuest + pointsToAdd);
+            }
+            if (solvedStep >= 0) {
+                String stepField = (isOwner ? "ownerStep" : "guestStep") + (solvedStep + 1) + "Hits";
+                int currentStepValue = snapshot.getLong(stepField) != null
+                        ? snapshot.getLong(stepField).intValue() : 0;
+                updates.put(stepField, currentStepValue + 1);
             }
             updates.put("phase", phaseToSet);
             updates.put("phaseStartedAt", FieldValue.serverTimestamp());
@@ -546,7 +568,19 @@ public class KorakPoKorakActivity extends AppCompatActivity {
             updates.put("gameFinished", true);
             updates.put("winner", winner);
             updates.put("phase", "finished");
-            gameRef.update(updates);
+            gameRef.update(updates).addOnSuccessListener(unused -> {
+                if (ownerId != null && guestId != null) {
+                    profileStatsUpdater.recordKorakPoKorak(
+                            ownerId,
+                            guestId,
+                            ownerSc,
+                            guestSc,
+                            winner,
+                            ownerStepHits,
+                            guestStepHits
+                    );
+                }
+            });
         });
     }
 

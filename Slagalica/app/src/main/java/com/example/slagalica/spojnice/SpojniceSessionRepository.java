@@ -129,6 +129,8 @@ public class SpojniceSessionRepository {
         gameData.put("ownerSolvedRightIndices", new ArrayList<Integer>());
         gameData.put("guestSolvedLeftIndices", new ArrayList<Integer>());
         gameData.put("guestSolvedRightIndices", new ArrayList<Integer>());
+        gameData.put("ownerAttemptCount", 0);
+        gameData.put("guestAttemptCount", 0);
         gameData.put("gameFinished", false);
         gameData.put("winner", null);
         gameData.put("resultMessage", "");
@@ -143,7 +145,8 @@ public class SpojniceSessionRepository {
                                  int attemptsUsed, List<Integer> solvedLeftIndices,
                                  List<Integer> solvedRightIndices, List<Integer> ownerSolvedLeftIndices,
                                  List<Integer> ownerSolvedRightIndices, List<Integer> guestSolvedLeftIndices,
-                                 List<Integer> guestSolvedRightIndices, String resultMessage,
+                                 List<Integer> guestSolvedRightIndices, int ownerAttemptCount,
+                                 int guestAttemptCount, String resultMessage,
                                  RepositoryCallback callback) {
         Map<String, Object> updates = new HashMap<>();
         updates.put("phase", nextPhase);
@@ -156,6 +159,8 @@ public class SpojniceSessionRepository {
         updates.put("ownerSolvedRightIndices", new ArrayList<>(ownerSolvedRightIndices));
         updates.put("guestSolvedLeftIndices", new ArrayList<>(guestSolvedLeftIndices));
         updates.put("guestSolvedRightIndices", new ArrayList<>(guestSolvedRightIndices));
+        updates.put("ownerAttemptCount", ownerAttemptCount);
+        updates.put("guestAttemptCount", guestAttemptCount);
         updates.put("resultMessage", resultMessage);
         updates.put("phaseStartedAt", FieldValue.serverTimestamp());
 
@@ -179,6 +184,8 @@ public class SpojniceSessionRepository {
         updates.put("ownerSolvedRightIndices", new ArrayList<Integer>());
         updates.put("guestSolvedLeftIndices", new ArrayList<Integer>());
         updates.put("guestSolvedRightIndices", new ArrayList<Integer>());
+        updates.put("ownerAttemptCount", 0);
+        updates.put("guestAttemptCount", 0);
         updates.put("resultMessage", "");
         updates.put("phaseStartedAt", FieldValue.serverTimestamp());
 
@@ -236,6 +243,8 @@ public class SpojniceSessionRepository {
                 castIntegerList(snapshot.get("ownerSolvedRightIndices")),
                 castIntegerList(snapshot.get("guestSolvedLeftIndices")),
                 castIntegerList(snapshot.get("guestSolvedRightIndices")),
+                snapshot.getLong("ownerAttemptCount") != null ? snapshot.getLong("ownerAttemptCount").intValue() : 0,
+                snapshot.getLong("guestAttemptCount") != null ? snapshot.getLong("guestAttemptCount").intValue() : 0,
                 mapSet(snapshot.get("round1Set")),
                 mapSet(snapshot.get("round2Set")),
                 snapshot.getString("resultMessage"),
@@ -322,6 +331,8 @@ public class SpojniceSessionRepository {
         public final List<Integer> ownerSolvedRightIndices;
         public final List<Integer> guestSolvedLeftIndices;
         public final List<Integer> guestSolvedRightIndices;
+        public final int ownerAttemptCount;
+        public final int guestAttemptCount;
         public final SpojniceSet round1Set;
         public final SpojniceSet round2Set;
         public final String resultMessage;
@@ -334,6 +345,7 @@ public class SpojniceSessionRepository {
                          List<Integer> solvedLeftIndices, List<Integer> solvedRightIndices,
                          List<Integer> ownerSolvedLeftIndices, List<Integer> ownerSolvedRightIndices,
                          List<Integer> guestSolvedLeftIndices, List<Integer> guestSolvedRightIndices,
+                         int ownerAttemptCount, int guestAttemptCount,
                          SpojniceSet round1Set, SpojniceSet round2Set, String resultMessage, boolean gameFinished,
                          String winner, Long phaseStartedAtMs) {
             this.sessionId = sessionId;
@@ -352,6 +364,8 @@ public class SpojniceSessionRepository {
             this.ownerSolvedRightIndices = ownerSolvedRightIndices;
             this.guestSolvedLeftIndices = guestSolvedLeftIndices;
             this.guestSolvedRightIndices = guestSolvedRightIndices;
+            this.ownerAttemptCount = ownerAttemptCount;
+            this.guestAttemptCount = guestAttemptCount;
             this.round1Set = round1Set;
             this.round2Set = round2Set;
             this.resultMessage = resultMessage;

@@ -14,6 +14,7 @@ import com.example.slagalica.koznazna.FirestoreQuizQuestionRepository;
 import com.example.slagalica.koznazna.KoZnaZnaEvaluator;
 import com.example.slagalica.koznazna.KoZnaZnaSessionRepository;
 import com.example.slagalica.koznazna.QuizQuestion;
+import com.example.slagalica.profile.ProfileStatsUpdater;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.ListenerRegistration;
@@ -46,6 +47,7 @@ public class KoZnaZnaActivity extends AppCompatActivity {
     private FirebaseManager firebaseManager;
     private FirestoreQuizQuestionRepository questionRepository;
     private KoZnaZnaSessionRepository sessionRepository;
+    private ProfileStatsUpdater profileStatsUpdater;
 
     private String sessionId;
     private boolean isOwner;
@@ -71,6 +73,7 @@ public class KoZnaZnaActivity extends AppCompatActivity {
         firebaseManager = new FirebaseManager();
         questionRepository = new FirestoreQuizQuestionRepository();
         sessionRepository = new KoZnaZnaSessionRepository();
+        profileStatsUpdater = new ProfileStatsUpdater();
 
         sessionId = getIntent().getStringExtra("sessionId");
         isOwner = getIntent().getBooleanExtra("isOwner", true);
@@ -359,6 +362,19 @@ public class KoZnaZnaActivity extends AppCompatActivity {
                     new KoZnaZnaSessionRepository.RepositoryCallback() {
                         @Override
                         public void onSuccess() {
+                            if (sessionInfo != null) {
+                                profileStatsUpdater.recordKoZnaZna(
+                                        sessionInfo.ownerId,
+                                        sessionInfo.guestId,
+                                        currentState.ownerScore,
+                                        currentState.guestScore,
+                                        winner,
+                                        currentState.ownerCorrectAnswers,
+                                        currentState.ownerWrongAnswers,
+                                        currentState.guestCorrectAnswers,
+                                        currentState.guestWrongAnswers
+                                );
+                            }
                         }
 
                         @Override

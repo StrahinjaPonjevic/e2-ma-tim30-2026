@@ -10,6 +10,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.auth.FirebaseManager;
+import com.example.slagalica.profile.ProfileStatsUpdater;
 import com.example.slagalica.spojnice.FirestoreSpojniceRepository;
 import com.example.slagalica.spojnice.SpojniceEvaluator;
 import com.example.slagalica.spojnice.SpojniceSessionRepository;
@@ -54,6 +55,7 @@ public class SpojniceActivity extends AppCompatActivity {
     private FirebaseManager firebaseManager;
     private FirestoreSpojniceRepository setRepository;
     private SpojniceSessionRepository sessionRepository;
+    private ProfileStatsUpdater profileStatsUpdater;
 
     private String sessionId;
     private boolean isOwner;
@@ -75,6 +77,7 @@ public class SpojniceActivity extends AppCompatActivity {
         firebaseManager = new FirebaseManager();
         setRepository = new FirestoreSpojniceRepository();
         sessionRepository = new SpojniceSessionRepository();
+        profileStatsUpdater = new ProfileStatsUpdater();
 
         sessionId = getIntent().getStringExtra("sessionId");
         isOwner = getIntent().getBooleanExtra("isOwner", true);
@@ -314,8 +317,16 @@ public class SpojniceActivity extends AppCompatActivity {
         List<Integer> ownerSolvedRight = new ArrayList<>(currentState.ownerSolvedRightIndices);
         List<Integer> guestSolvedLeft = new ArrayList<>(currentState.guestSolvedLeftIndices);
         List<Integer> guestSolvedRight = new ArrayList<>(currentState.guestSolvedRightIndices);
+        int ownerAttemptCount = currentState.ownerAttemptCount;
+        int guestAttemptCount = currentState.guestAttemptCount;
         int ownerScore = currentState.ownerScore;
         int guestScore = currentState.guestScore;
+
+        if (isOwner) {
+            ownerAttemptCount++;
+        } else {
+            guestAttemptCount++;
+        }
 
         if (correct) {
             solvedLeft.add(selectedLeftIndex);
@@ -351,6 +362,8 @@ public class SpojniceActivity extends AppCompatActivity {
                 ownerSolvedRight,
                 guestSolvedLeft,
                 guestSolvedRight,
+                ownerAttemptCount,
+                guestAttemptCount,
                 resultMessage,
                 new SpojniceSessionRepository.RepositoryCallback() {
                     @Override
@@ -402,6 +415,19 @@ public class SpojniceActivity extends AppCompatActivity {
                     new SpojniceSessionRepository.RepositoryCallback() {
                         @Override
                         public void onSuccess() {
+                            if (sessionInfo != null) {
+                                profileStatsUpdater.recordSpojnice(
+                                        sessionInfo.ownerId,
+                                        sessionInfo.guestId,
+                                        currentState.ownerScore,
+                                        currentState.guestScore,
+                                        winner,
+                                        currentState.ownerSolvedLeftIndices.size(),
+                                        currentState.ownerAttemptCount,
+                                        currentState.guestSolvedLeftIndices.size(),
+                                        currentState.guestAttemptCount
+                                );
+                            }
                         }
 
                         @Override
@@ -506,6 +532,8 @@ public class SpojniceActivity extends AppCompatActivity {
                 new ArrayList<>(currentState.ownerSolvedRightIndices),
                 new ArrayList<>(currentState.guestSolvedLeftIndices),
                 new ArrayList<>(currentState.guestSolvedRightIndices),
+                currentState.ownerAttemptCount,
+                currentState.guestAttemptCount,
                 "Vreme je isteklo.",
                 new SpojniceSessionRepository.RepositoryCallback() {
                     @Override
