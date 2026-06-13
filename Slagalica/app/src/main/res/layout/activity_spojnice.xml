@@ -22,7 +22,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Izaberi pojam iz leve kolone, pa odgovarajući pojam iz desne kolone."
+                android:text="Izaberi pojam iz leve kolone, pa odgovarajuci pojam iz desne kolone."
                 android:textSize="16sp"
                 android:textColor="#555555"
                 android:gravity="center"
@@ -57,24 +57,27 @@
                         android:text="Nikola Tesla"
                         android:textAllCaps="false"
                         android:textSize="14sp"
+                        android:textColor="#1E1E1E"
                         android:layout_marginBottom="8dp" />
 
                     <Button
                         android:id="@+id/btnLeft2"
                         android:layout_width="match_parent"
                         android:layout_height="55dp"
-                        android:text="Novak Đoković"
+                        android:text="Novak Djokovic"
                         android:textAllCaps="false"
                         android:textSize="14sp"
+                        android:textColor="#1E1E1E"
                         android:layout_marginBottom="8dp" />
 
                     <Button
                         android:id="@+id/btnLeft3"
                         android:layout_width="match_parent"
                         android:layout_height="55dp"
-                        android:text="Ivo Andrić"
+                        android:text="Ivo Andric"
                         android:textAllCaps="false"
                         android:textSize="14sp"
+                        android:textColor="#1E1E1E"
                         android:layout_marginBottom="8dp" />
 
                     <Button
@@ -84,6 +87,7 @@
                         android:text="Mocart"
                         android:textAllCaps="false"
                         android:textSize="14sp"
+                        android:textColor="#1E1E1E"
                         android:layout_marginBottom="8dp" />
 
                     <Button
@@ -92,7 +96,8 @@
                         android:layout_height="55dp"
                         android:text="Albert Einstein"
                         android:textAllCaps="false"
-                        android:textSize="14sp" />
+                        android:textSize="14sp"
+                        android:textColor="#1E1E1E" />
 
                 </LinearLayout>
 
@@ -119,6 +124,7 @@
                         android:text="Tenis"
                         android:textAllCaps="false"
                         android:textSize="14sp"
+                        android:textColor="#1E1E1E"
                         android:layout_marginBottom="8dp" />
 
                     <Button
@@ -128,15 +134,17 @@
                         android:text="Relativnost"
                         android:textAllCaps="false"
                         android:textSize="14sp"
+                        android:textColor="#1E1E1E"
                         android:layout_marginBottom="8dp" />
 
                     <Button
                         android:id="@+id/btnRight3"
                         android:layout_width="match_parent"
                         android:layout_height="55dp"
-                        android:text="Naizmenična struja"
+                        android:text="Naizmenicna struja"
                         android:textAllCaps="false"
                         android:textSize="14sp"
+                        android:textColor="#1E1E1E"
                         android:layout_marginBottom="8dp" />
 
                     <Button
@@ -146,15 +154,17 @@
                         android:text="Muzika"
                         android:textAllCaps="false"
                         android:textSize="14sp"
+                        android:textColor="#1E1E1E"
                         android:layout_marginBottom="8dp" />
 
                     <Button
                         android:id="@+id/btnRight5"
                         android:layout_width="match_parent"
                         android:layout_height="55dp"
-                        android:text="Na Drini ćuprija"
+                        android:text="Na Drini cuprija"
                         android:textAllCaps="false"
-                        android:textSize="14sp" />
+                        android:textSize="14sp"
+                        android:textColor="#1E1E1E" />
 
                 </LinearLayout>
             </LinearLayout>
@@ -163,7 +173,7 @@
                 android:id="@+id/tvSelected"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Izabrano: ništa"
+                android:text="Izabrano: nista"
                 android:textSize="16sp"
                 android:textColor="#333333"
                 android:gravity="center"
@@ -173,7 +183,7 @@
                 android:id="@+id/btnNextRound"
                 android:layout_width="match_parent"
                 android:layout_height="55dp"
-                android:text="Sledeća runda"
+                android:text="Sledeca runda"
                 android:textAllCaps="false"
                 android:textSize="16sp"
                 android:layout_marginBottom="12dp" />

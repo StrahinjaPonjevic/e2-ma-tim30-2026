@@ -1,16 +1,33 @@
 package com.example.slagalica;
 
+import android.graphics.Color;
 import android.os.Bundle;
-import android.view.View;
+import android.os.CountDownTimer;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.example.slagalica.auth.FirebaseManager;
+import com.example.slagalica.spojnice.FirestoreSpojniceRepository;
+import com.example.slagalica.spojnice.SpojniceEvaluator;
+import com.example.slagalica.spojnice.SpojniceSessionRepository;
+import com.example.slagalica.spojnice.SpojniceSet;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.ListenerRegistration;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 public class SpojniceActivity extends AppCompatActivity {
+
+    private static final int ROUND_DURATION_SECONDS = 30;
+    private static final int ITEMS_PER_ROUND = 5;
+    private static final int OWNER_SOLVED_COLOR = Color.rgb(239, 154, 154);
+    private static final int GUEST_SOLVED_COLOR = Color.rgb(144, 202, 249);
 
     private TextView tvPlayer1Name;
     private TextView tvPlayer1Score;
@@ -34,30 +51,45 @@ public class SpojniceActivity extends AppCompatActivity {
     private Button btnNextRound;
     private Button btnBack;
 
+    private FirebaseManager firebaseManager;
+    private FirestoreSpojniceRepository setRepository;
+    private SpojniceSessionRepository sessionRepository;
+
+    private String sessionId;
+    private boolean isOwner;
+    private ListenerRegistration gameListener;
+    private CountDownTimer countDownTimer;
+
+    private SpojniceSessionRepository.SessionInfo sessionInfo;
+    private SpojniceSessionRepository.GameState currentState;
+    private String lastObservedPhase;
     private int selectedLeftIndex = -1;
-    private Button selectedLeftButton = null;
-
-    private int score = 0;
-    private int round = 1;
-
-    // Tačni parovi:
-    // 0 Tesla -> Naizmenična struja
-    // 1 Đoković -> Tenis
-    // 2 Andrić -> Na Drini ćuprija
-    // 3 Mocart -> Muzika
-    // 4 Einstein -> Relativnost
-    private final int[] correctRightForLeft = {2, 0, 4, 3, 1};
+    private boolean waitingForGameRetryScheduled = false;
+    private boolean phaseAdvanceRequested = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_spojnice);
 
+        firebaseManager = new FirebaseManager();
+        setRepository = new FirestoreSpojniceRepository();
+        sessionRepository = new SpojniceSessionRepository();
+
+        sessionId = getIntent().getStringExtra("sessionId");
+        isOwner = getIntent().getBooleanExtra("isOwner", true);
+
+        FirebaseUser currentUser = firebaseManager.getCurrentUser();
+        if (currentUser == null || sessionId == null || sessionId.isEmpty()) {
+            Toast.makeText(this, "Sesija nije pronadjena", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
         bindViews();
-        setupHeader();
-        setupLeftButtons();
-        setupRightButtons();
-        bindActionButtons();
+        bindListeners();
+        setupInitialHeader();
+        loadSessionAndStart();
     }
 
     private void bindViews() {
@@ -86,172 +118,675 @@ public class SpojniceActivity extends AppCompatActivity {
         btnBack = findViewById(R.id.btnBack);
     }
 
-    private void setupHeader() {
-        tvPlayer1Name.setText("Igrač 1");
-        tvPlayer2Name.setText("Igrač 2");
-        tvRoundLabel.setText("RUNDA 1/2 — SPOJNICE");
-        tvTimer.setText("30");
-        progressTimer.setMax(30);
-        progressTimer.setProgress(30);
-        updateScoreViews();
+    private void bindListeners() {
+        btnLeft1.setOnClickListener(v -> selectLeft(0));
+        btnLeft2.setOnClickListener(v -> selectLeft(1));
+        btnLeft3.setOnClickListener(v -> selectLeft(2));
+        btnLeft4.setOnClickListener(v -> selectLeft(3));
+        btnLeft5.setOnClickListener(v -> selectLeft(4));
+
+        btnRight1.setOnClickListener(v -> tryMatch(0));
+        btnRight2.setOnClickListener(v -> tryMatch(1));
+        btnRight3.setOnClickListener(v -> tryMatch(2));
+        btnRight4.setOnClickListener(v -> tryMatch(3));
+        btnRight5.setOnClickListener(v -> tryMatch(4));
+
+        btnNextRound.setOnClickListener(v -> handleNextPhaseClick());
+        btnBack.setOnClickListener(v -> finish());
     }
 
-    private void bindActionButtons() {
-        btnNextRound.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                goToNextRound();
-            }
-        });
-
-        btnBack.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                finish();
-            }
-        });
+    private void setupInitialHeader() {
+        tvPlayer1Name.setText("Igrac 1");
+        tvPlayer2Name.setText("Igrac 2");
+        tvRoundLabel.setText("RUNDA 1/2 - SPOJNICE");
+        tvTimer.setText(String.valueOf(ROUND_DURATION_SECONDS));
+        progressTimer.setMax(ROUND_DURATION_SECONDS);
+        progressTimer.setProgress(ROUND_DURATION_SECONDS);
+        updateScoreViews(0, 0);
+        btnNextRound.setEnabled(false);
+        tvSelected.setText("Cekanje partije...");
     }
 
-    private void setupLeftButtons() {
-        btnLeft1.setOnClickListener(new View.OnClickListener() {
+    private void loadSessionAndStart() {
+        sessionRepository.loadSessionInfo(sessionId, new SpojniceSessionRepository.SessionInfoCallback() {
             @Override
-            public void onClick(View view) {
-                selectLeft(0, btnLeft1);
+            public void onSuccess(SpojniceSessionRepository.SessionInfo info) {
+                sessionInfo = info;
+                updatePlayerNames();
+                observeGame();
             }
-        });
 
-        btnLeft2.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view) {
-                selectLeft(1, btnLeft2);
-            }
-        });
-
-        btnLeft3.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                selectLeft(2, btnLeft3);
-            }
-        });
-
-        btnLeft4.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                selectLeft(3, btnLeft4);
-            }
-        });
-
-        btnLeft5.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                selectLeft(4, btnLeft5);
+            public void onError(String message) {
+                runOnUiThread(() -> {
+                    Toast.makeText(SpojniceActivity.this, message, Toast.LENGTH_LONG).show();
+                    finish();
+                });
             }
         });
     }
 
-    private void setupRightButtons() {
-        btnRight1.setOnClickListener(new View.OnClickListener() {
+    private void observeGame() {
+        gameListener = sessionRepository.observeGame(sessionId, new SpojniceSessionRepository.GameStateListener() {
             @Override
-            public void onClick(View view) {
-                checkPair(0, btnRight1);
+            public void onGameStateChanged(SpojniceSessionRepository.GameState gameState) {
+                runOnUiThread(() -> handleGameState(gameState));
             }
-        });
 
-        btnRight2.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view) {
-                checkPair(1, btnRight2);
-            }
-        });
-
-        btnRight3.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                checkPair(2, btnRight3);
-            }
-        });
-
-        btnRight4.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                checkPair(3, btnRight4);
-            }
-        });
-
-        btnRight5.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                checkPair(4, btnRight5);
+            public void onError(String message) {
+                runOnUiThread(() -> Toast.makeText(SpojniceActivity.this, message, Toast.LENGTH_SHORT).show());
             }
         });
     }
 
-    private void selectLeft(int leftIndex, Button leftButton) {
-        selectedLeftIndex = leftIndex;
-        selectedLeftButton = leftButton;
-
-        tvSelected.setText("Izabrano: " + leftButton.getText().toString());
-        Toast.makeText(this, "Sada izaberi pojam iz desne kolone", Toast.LENGTH_SHORT).show();
-    }
-
-    private void checkPair(int rightIndex, Button rightButton) {
-        if (selectedLeftIndex == -1) {
-            Toast.makeText(this, "Prvo izaberi pojam iz leve kolone", Toast.LENGTH_SHORT).show();
+    private void handleGameState(SpojniceSessionRepository.GameState gameState) {
+        if (gameState == null) {
+            if (isOwner && sessionInfo != null) {
+                initializeGame();
+            } else {
+                showWaitingForGameState();
+                scheduleGameRefreshRetry();
+            }
             return;
         }
 
-        if (correctRightForLeft[selectedLeftIndex] == rightIndex) {
-            score += 2;
-            updateScoreViews();
+        waitingForGameRetryScheduled = false;
+        currentState = gameState;
+        updatePlayerNames();
+        updateScoreViews(gameState.ownerScore, gameState.guestScore);
 
-            Toast.makeText(this, "Tačan spoj! +2 boda", Toast.LENGTH_SHORT).show();
-
-            selectedLeftButton.setEnabled(false);
-            rightButton.setEnabled(false);
+        if (!gameState.phase.equals(lastObservedPhase)) {
+            phaseAdvanceRequested = false;
+            selectedLeftIndex = -1;
+            stopTimer();
+            handlePhaseEntered(gameState);
         } else {
-            Toast.makeText(this, "Netačan spoj", Toast.LENGTH_SHORT).show();
+            refreshBoard(gameState);
+            updateStatusText(gameState);
         }
 
-        selectedLeftIndex = -1;
-        selectedLeftButton = null;
-        tvSelected.setText("Izabrano: ništa");
+        lastObservedPhase = gameState.phase;
     }
 
-    private void goToNextRound() {
-        if (round == 1) {
-            round = 2;
-            tvRoundLabel.setText("RUNDA 2/2 — SPOJNICE");
-            tvTimer.setText("30");
-            progressTimer.setProgress(30);
+    private void initializeGame() {
+        tvSelected.setText("Priprema spojnica iz baze...");
+        setRepository.loadSets(2, new FirestoreSpojniceRepository.LoadSetsCallback() {
+            @Override
+            public void onSuccess(List<SpojniceSet> sets) {
+                sessionRepository.initializeGame(sessionId, sessionInfo, sets,
+                        new SpojniceSessionRepository.RepositoryCallback() {
+                            @Override
+                            public void onSuccess() {
+                            }
 
-            resetButtons();
+                            @Override
+                            public void onError(String message) {
+                                runOnUiThread(() -> Toast.makeText(SpojniceActivity.this, message, Toast.LENGTH_LONG).show());
+                            }
+                        });
+            }
 
-            Toast.makeText(this, "Počinje druga runda", Toast.LENGTH_SHORT).show();
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> Toast.makeText(SpojniceActivity.this, message, Toast.LENGTH_LONG).show());
+            }
+        });
+    }
+
+    private void handlePhaseEntered(SpojniceSessionRepository.GameState gameState) {
+        refreshBoard(gameState);
+
+        if ("finished".equals(gameState.phase)) {
+            showFinalResult(gameState);
+            return;
+        }
+
+        if ("round1_owner_turn".equals(gameState.phase) || "round1_guest_cleanup".equals(gameState.phase)) {
+            tvRoundLabel.setText("RUNDA 1/2 - SPOJNICE");
+        } else if ("round2_guest_turn".equals(gameState.phase) || "round2_owner_cleanup".equals(gameState.phase)) {
+            tvRoundLabel.setText("RUNDA 2/2 - SPOJNICE");
+        } else if ("round_result".equals(gameState.phase)) {
+            stopTimer();
+            btnNextRound.setEnabled(isOwner);
+            btnNextRound.setText(gameState.currentRound == 1 ? "Pokreni rundu 2" : "Prikazi rezultat");
+            updateStatusText(gameState);
+            return;
+        }
+
+        updateStatusText(gameState);
+        startRoundTimer(gameState);
+    }
+
+    private void refreshBoard(SpojniceSessionRepository.GameState gameState) {
+        SpojniceSet activeSet = getActiveSet(gameState);
+        if (activeSet == null) {
+            return;
+        }
+
+        setButtonText(btnLeft1, activeSet.getLeftItems().get(0));
+        setButtonText(btnLeft2, activeSet.getLeftItems().get(1));
+        setButtonText(btnLeft3, activeSet.getLeftItems().get(2));
+        setButtonText(btnLeft4, activeSet.getLeftItems().get(3));
+        setButtonText(btnLeft5, activeSet.getLeftItems().get(4));
+
+        setButtonText(btnRight1, activeSet.getRightItems().get(0));
+        setButtonText(btnRight2, activeSet.getRightItems().get(1));
+        setButtonText(btnRight3, activeSet.getRightItems().get(2));
+        setButtonText(btnRight4, activeSet.getRightItems().get(3));
+        setButtonText(btnRight5, activeSet.getRightItems().get(4));
+
+        updateSolvedButtons(gameState);
+        updateSelectionHighlight();
+
+        boolean myTurn = isCurrentPlayerTurn(gameState);
+        boolean selectionAllowed = myTurn
+                && !"round_result".equals(gameState.phase)
+                && !"finished".equals(gameState.phase);
+        setSelectionEnabled(selectionAllowed);
+        btnNextRound.setEnabled(isOwner && "round_result".equals(gameState.phase));
+    }
+
+    private void selectLeft(int leftIndex) {
+        if (currentState == null || !isCurrentPlayerTurn(currentState) || isSolvedLeft(leftIndex)) {
+            return;
+        }
+
+        selectedLeftIndex = leftIndex;
+        updateStatusText(currentState);
+        updateSelectionHighlight();
+    }
+
+    private void tryMatch(int rightIndex) {
+        if (currentState == null
+                || !isCurrentPlayerTurn(currentState)
+                || selectedLeftIndex == -1
+                || isSolvedRight(rightIndex)) {
+            return;
+        }
+
+        SpojniceSet activeSet = getActiveSet(currentState);
+        boolean correct = SpojniceEvaluator.isCorrectMatch(activeSet, selectedLeftIndex, rightIndex);
+
+        List<Integer> solvedLeft = new ArrayList<>(currentState.solvedLeftIndices);
+        List<Integer> solvedRight = new ArrayList<>(currentState.solvedRightIndices);
+        List<Integer> ownerSolvedLeft = new ArrayList<>(currentState.ownerSolvedLeftIndices);
+        List<Integer> ownerSolvedRight = new ArrayList<>(currentState.ownerSolvedRightIndices);
+        List<Integer> guestSolvedLeft = new ArrayList<>(currentState.guestSolvedLeftIndices);
+        List<Integer> guestSolvedRight = new ArrayList<>(currentState.guestSolvedRightIndices);
+        int ownerScore = currentState.ownerScore;
+        int guestScore = currentState.guestScore;
+
+        if (correct) {
+            solvedLeft.add(selectedLeftIndex);
+            solvedRight.add(rightIndex);
+            if (isOwner) {
+                ownerScore += 2;
+                ownerSolvedLeft.add(selectedLeftIndex);
+                ownerSolvedRight.add(rightIndex);
+            } else {
+                guestScore += 2;
+                guestSolvedLeft.add(selectedLeftIndex);
+                guestSolvedRight.add(rightIndex);
+            }
+        }
+
+        int attemptsUsed = currentState.attemptsUsed + 1;
+        String nextPhase = determineNextPhase(currentState, attemptsUsed, solvedLeft.size());
+        String resultMessage = correct ? "Tacan spoj! +2 boda." : "Netacan spoj.";
+
+        selectedLeftIndex = -1;
+        updateSelectionHighlight();
+        phaseAdvanceRequested = "round_result".equals(nextPhase);
+
+        sessionRepository.updateAfterMatch(
+                sessionId,
+                nextPhase,
+                ownerScore,
+                guestScore,
+                attemptsUsed,
+                solvedLeft,
+                solvedRight,
+                ownerSolvedLeft,
+                ownerSolvedRight,
+                guestSolvedLeft,
+                guestSolvedRight,
+                resultMessage,
+                new SpojniceSessionRepository.RepositoryCallback() {
+                    @Override
+                    public void onSuccess() {
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        runOnUiThread(() -> Toast.makeText(SpojniceActivity.this, message, Toast.LENGTH_SHORT).show());
+                    }
+                }
+        );
+    }
+
+    private void handleNextPhaseClick() {
+        if (currentState == null || !isOwner || !"round_result".equals(currentState.phase)) {
+            return;
+        }
+
+        if (currentState.currentRound == 1) {
+            sessionRepository.advancePhase(
+                    sessionId,
+                    "round2_guest_turn",
+                    2,
+                    currentState.ownerScore,
+                    currentState.guestScore,
+                    new ArrayList<>(),
+                    new ArrayList<>(),
+                    new SpojniceSessionRepository.RepositoryCallback() {
+                        @Override
+                        public void onSuccess() {
+                        }
+
+                        @Override
+                        public void onError(String message) {
+                            runOnUiThread(() -> Toast.makeText(SpojniceActivity.this, message, Toast.LENGTH_SHORT).show());
+                        }
+                    }
+            );
         } else {
-            Toast.makeText(this, "Kraj igre! Osvojio si " + score + " bodova.", Toast.LENGTH_LONG).show();
+            String winner = determineWinner(currentState.ownerScore, currentState.guestScore);
+            String resultMessage = buildFinalResultMessage(currentState.ownerScore, currentState.guestScore, winner);
+            sessionRepository.finishGame(
+                    sessionId,
+                    currentState.ownerScore,
+                    currentState.guestScore,
+                    winner,
+                    resultMessage,
+                    new SpojniceSessionRepository.RepositoryCallback() {
+                        @Override
+                        public void onSuccess() {
+                        }
+
+                        @Override
+                        public void onError(String message) {
+                            runOnUiThread(() -> Toast.makeText(SpojniceActivity.this, message, Toast.LENGTH_SHORT).show());
+                        }
+                    }
+            );
         }
     }
 
-    private void resetButtons() {
-        btnLeft1.setEnabled(true);
-        btnLeft2.setEnabled(true);
-        btnLeft3.setEnabled(true);
-        btnLeft4.setEnabled(true);
-        btnLeft5.setEnabled(true);
+    private String determineNextPhase(SpojniceSessionRepository.GameState gameState, int attemptsUsed, int solvedCount) {
+        if (solvedCount == ITEMS_PER_ROUND) {
+            return "round_result";
+        }
 
-        btnRight1.setEnabled(true);
-        btnRight2.setEnabled(true);
-        btnRight3.setEnabled(true);
-        btnRight4.setEnabled(true);
-        btnRight5.setEnabled(true);
+        if ("round1_owner_turn".equals(gameState.phase) && attemptsUsed >= ITEMS_PER_ROUND) {
+            return "round1_guest_cleanup";
+        }
 
-        selectedLeftIndex = -1;
-        selectedLeftButton = null;
-        tvSelected.setText("Izabrano: ništa");
+        if ("round2_guest_turn".equals(gameState.phase) && attemptsUsed >= ITEMS_PER_ROUND) {
+            return "round2_owner_cleanup";
+        }
+
+        if ("round1_guest_cleanup".equals(gameState.phase) || "round2_owner_cleanup".equals(gameState.phase)) {
+            return solvedCount == ITEMS_PER_ROUND ? "round_result" : gameState.phase;
+        }
+
+        return gameState.phase;
     }
 
-    private void updateScoreViews() {
-        tvPlayer1Score.setText(score + " bodova");
-        tvPlayer2Score.setText("0 bodova");
+    private void startRoundTimer(SpojniceSessionRepository.GameState gameState) {
+        stopTimer();
+
+        int secondsLeft = getRemainingSeconds(gameState);
+        progressTimer.setMax(ROUND_DURATION_SECONDS);
+        progressTimer.setProgress(secondsLeft);
+        tvTimer.setText(String.valueOf(secondsLeft));
+        resetTimerStyle();
+
+        if (secondsLeft <= 0) {
+            if (isCurrentPlayerTurn(gameState)) {
+                advanceAfterTimeout();
+            }
+            return;
+        }
+
+        countDownTimer = new CountDownTimer(secondsLeft * 1000L, 1000L) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                int updatedSecondsLeft = (int) Math.ceil(millisUntilFinished / 1000.0);
+                tvTimer.setText(String.valueOf(updatedSecondsLeft));
+                progressTimer.setProgress(updatedSecondsLeft);
+
+                if (updatedSecondsLeft <= 10) {
+                    tvTimer.setTextColor(Color.parseColor("#E53935"));
+                    progressTimer.setIndicatorColor(Color.parseColor("#E53935"));
+                }
+            }
+
+            @Override
+            public void onFinish() {
+                tvTimer.setText("0");
+                progressTimer.setProgress(0);
+                if (currentState != null
+                        && !"round_result".equals(currentState.phase)
+                        && !"finished".equals(currentState.phase)
+                        && isCurrentPlayerTurn(currentState)) {
+                    advanceAfterTimeout();
+                }
+            }
+        }.start();
+    }
+
+    private void advanceAfterTimeout() {
+        if (currentState == null || phaseAdvanceRequested || !isCurrentPlayerTurn(currentState)) {
+            return;
+        }
+
+        phaseAdvanceRequested = true;
+        String nextPhase = "round_result";
+
+        if ("round1_owner_turn".equals(currentState.phase)) {
+            nextPhase = "round1_guest_cleanup";
+        } else if ("round1_guest_cleanup".equals(currentState.phase)) {
+            nextPhase = "round_result";
+        } else if ("round2_guest_turn".equals(currentState.phase)) {
+            nextPhase = "round2_owner_cleanup";
+        } else if ("round2_owner_cleanup".equals(currentState.phase)) {
+            nextPhase = "round_result";
+        }
+
+        sessionRepository.updateAfterMatch(
+                sessionId,
+                nextPhase,
+                currentState.ownerScore,
+                currentState.guestScore,
+                currentState.attemptsUsed,
+                new ArrayList<>(currentState.solvedLeftIndices),
+                new ArrayList<>(currentState.solvedRightIndices),
+                new ArrayList<>(currentState.ownerSolvedLeftIndices),
+                new ArrayList<>(currentState.ownerSolvedRightIndices),
+                new ArrayList<>(currentState.guestSolvedLeftIndices),
+                new ArrayList<>(currentState.guestSolvedRightIndices),
+                "Vreme je isteklo.",
+                new SpojniceSessionRepository.RepositoryCallback() {
+                    @Override
+                    public void onSuccess() {
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        phaseAdvanceRequested = false;
+                        runOnUiThread(() -> Toast.makeText(SpojniceActivity.this, message, Toast.LENGTH_SHORT).show());
+                    }
+                }
+        );
+    }
+
+    private void updateSolvedButtons(SpojniceSessionRepository.GameState gameState) {
+        Button[] leftButtons = {btnLeft1, btnLeft2, btnLeft3, btnLeft4, btnLeft5};
+        Button[] rightButtons = {btnRight1, btnRight2, btnRight3, btnRight4, btnRight5};
+
+        for (int i = 0; i < leftButtons.length; i++) {
+            styleSolvedState(leftButtons[i], resolveSolvedColor(gameState, true, i));
+        }
+
+        for (int i = 0; i < rightButtons.length; i++) {
+            styleSolvedState(rightButtons[i], resolveSolvedColor(gameState, false, i));
+        }
+    }
+
+    private void styleSolvedState(Button button, int solvedColor) {
+        button.setTextColor(Color.parseColor("#1E1E1E"));
+        if (solvedColor != -1) {
+            button.setEnabled(false);
+            button.setAlpha(0.75f);
+            button.setBackgroundColor(solvedColor);
+        } else {
+            button.setAlpha(1.0f);
+            button.setBackgroundColor(Color.parseColor("#E9E9E9"));
+        }
+    }
+
+    private void setSelectionEnabled(boolean enabled) {
+        Button[] leftButtons = {btnLeft1, btnLeft2, btnLeft3, btnLeft4, btnLeft5};
+        Button[] rightButtons = {btnRight1, btnRight2, btnRight3, btnRight4, btnRight5};
+
+        for (int i = 0; i < leftButtons.length; i++) {
+            leftButtons[i].setEnabled(enabled && !isSolvedLeft(i));
+        }
+
+        for (int i = 0; i < rightButtons.length; i++) {
+            rightButtons[i].setEnabled(enabled && !isSolvedRight(i));
+        }
+    }
+
+    private void showWaitingForGameState() {
+        currentState = null;
+        stopTimer();
+        setSelectionEnabled(false);
+        btnNextRound.setEnabled(false);
+        tvSelected.setText("Cekanje da protivnik pokrene igru...");
+    }
+
+    private void scheduleGameRefreshRetry() {
+        if (waitingForGameRetryScheduled || isOwner) {
+            return;
+        }
+
+        waitingForGameRetryScheduled = true;
+        tvSelected.postDelayed(() -> {
+            waitingForGameRetryScheduled = false;
+            if (currentState == null) {
+                refreshGameStateOnce();
+            }
+        }, 1200);
+    }
+
+    private void refreshGameStateOnce() {
+        sessionRepository.fetchGameOnce(sessionId, new SpojniceSessionRepository.GameStateListener() {
+            @Override
+            public void onGameStateChanged(SpojniceSessionRepository.GameState gameState) {
+                runOnUiThread(() -> handleGameState(gameState));
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> {
+                    Toast.makeText(SpojniceActivity.this, message, Toast.LENGTH_SHORT).show();
+                    scheduleGameRefreshRetry();
+                });
+            }
+        });
+    }
+
+    private void showFinalResult(SpojniceSessionRepository.GameState gameState) {
+        stopTimer();
+        setSelectionEnabled(false);
+        btnNextRound.setEnabled(false);
+        btnNextRound.setText("Kraj igre");
+        tvSelected.setText(buildFinalResultMessage(gameState.ownerScore, gameState.guestScore, gameState.winner));
+    }
+
+    private void updatePlayerNames() {
+        if (sessionInfo == null) {
+            return;
+        }
+
+        tvPlayer1Name.setText(sessionInfo.ownerUsername != null ? sessionInfo.ownerUsername : "Igrac 1");
+        tvPlayer2Name.setText(sessionInfo.guestUsername != null ? sessionInfo.guestUsername : "Igrac 2");
+    }
+
+    private void updateScoreViews(int ownerScore, int guestScore) {
+        tvPlayer1Score.setText(ownerScore + " bodova");
+        tvPlayer2Score.setText(guestScore + " bodova");
+    }
+
+    private void setButtonText(Button button, String text) {
+        button.setText(text);
+        button.setTextColor(Color.parseColor("#1E1E1E"));
+    }
+
+    private void updateStatusText(SpojniceSessionRepository.GameState gameState) {
+        if (selectedLeftIndex != -1 && isCurrentPlayerTurn(gameState)) {
+            SpojniceSet activeSet = getActiveSet(gameState);
+            if (activeSet != null && selectedLeftIndex < activeSet.getLeftItems().size()) {
+                tvSelected.setText("Izabrano: " + activeSet.getLeftItems().get(selectedLeftIndex));
+                return;
+            }
+        }
+
+        String baseMessage;
+        switch (gameState.phase) {
+            case "round1_owner_turn":
+                baseMessage = isOwner ? "Tvoj red: povezi 5 pojmova." : "Protivnik povezuje pojmove.";
+                break;
+            case "round1_guest_cleanup":
+                baseMessage = !isOwner ? "Tvoj cleanup: povezi preostale pojmove." : "Protivnik cisti preostale pojmove.";
+                break;
+            case "round2_guest_turn":
+                baseMessage = !isOwner ? "Tvoj red: povezi 5 pojmova." : "Protivnik povezuje pojmove.";
+                break;
+            case "round2_owner_cleanup":
+                baseMessage = isOwner ? "Tvoj cleanup: povezi preostale pojmove." : "Protivnik cisti preostale pojmove.";
+                break;
+            case "round_result":
+                baseMessage = gameState.currentRound == 1 ? "Runda 1 je zavrsena." : "Runda 2 je zavrsena.";
+                break;
+            case "finished":
+                baseMessage = "Partija je zavrsena.";
+                break;
+            default:
+                baseMessage = "";
+                break;
+        }
+
+        String resultMessage = gameState.resultMessage != null ? gameState.resultMessage.trim() : "";
+        if (!resultMessage.isEmpty()) {
+            tvSelected.setText(String.format(Locale.getDefault(), "%s %s", baseMessage, resultMessage).trim());
+        } else {
+            tvSelected.setText(baseMessage);
+        }
+    }
+
+    private int getRemainingSeconds(SpojniceSessionRepository.GameState gameState) {
+        if (gameState.phaseStartedAtMs == null) {
+            return ROUND_DURATION_SECONDS;
+        }
+
+        long elapsedMs = Math.max(0L, System.currentTimeMillis() - gameState.phaseStartedAtMs);
+        int elapsedSeconds = (int) (elapsedMs / 1000L);
+        int remaining = ROUND_DURATION_SECONDS - elapsedSeconds;
+        return Math.max(0, Math.min(ROUND_DURATION_SECONDS, remaining));
+    }
+
+    private void updateSelectionHighlight() {
+        Button[] leftButtons = {btnLeft1, btnLeft2, btnLeft3, btnLeft4, btnLeft5};
+
+        for (int i = 0; i < leftButtons.length; i++) {
+            if (currentState != null && currentState.solvedLeftIndices.contains(i)) {
+                leftButtons[i].setBackgroundColor(resolveSolvedColor(currentState, true, i));
+            } else if (i == selectedLeftIndex) {
+                leftButtons[i].setBackgroundColor(Color.parseColor("#CDE7FF"));
+            } else {
+                leftButtons[i].setBackgroundColor(Color.parseColor("#E9E9E9"));
+            }
+            leftButtons[i].setTextColor(Color.parseColor("#1E1E1E"));
+        }
+    }
+
+    private int resolveSolvedColor(SpojniceSessionRepository.GameState gameState, boolean leftColumn, int index) {
+        if (gameState == null) {
+            return -1;
+        }
+
+        if (leftColumn) {
+            if (gameState.ownerSolvedLeftIndices.contains(index)) {
+                return OWNER_SOLVED_COLOR;
+            }
+            if (gameState.guestSolvedLeftIndices.contains(index)) {
+                return GUEST_SOLVED_COLOR;
+            }
+        } else {
+            if (gameState.ownerSolvedRightIndices.contains(index)) {
+                return OWNER_SOLVED_COLOR;
+            }
+            if (gameState.guestSolvedRightIndices.contains(index)) {
+                return GUEST_SOLVED_COLOR;
+            }
+        }
+
+        return -1;
+    }
+
+    private boolean isCurrentPlayerTurn(SpojniceSessionRepository.GameState gameState) {
+        switch (gameState.phase) {
+            case "round1_owner_turn":
+                return isOwner;
+            case "round1_guest_cleanup":
+                return !isOwner;
+            case "round2_guest_turn":
+                return !isOwner;
+            case "round2_owner_cleanup":
+                return isOwner;
+            default:
+                return false;
+        }
+    }
+
+    private SpojniceSet getActiveSet(SpojniceSessionRepository.GameState gameState) {
+        return gameState.currentRound == 1 ? gameState.round1Set : gameState.round2Set;
+    }
+
+    private boolean isSolvedLeft(int index) {
+        return currentState != null && currentState.solvedLeftIndices.contains(index);
+    }
+
+    private boolean isSolvedRight(int index) {
+        return currentState != null && currentState.solvedRightIndices.contains(index);
+    }
+
+    private String determineWinner(int ownerScore, int guestScore) {
+        if (ownerScore > guestScore) {
+            return "owner";
+        }
+        if (guestScore > ownerScore) {
+            return "guest";
+        }
+        return "draw";
+    }
+
+    private String buildFinalResultMessage(int ownerScore, int guestScore, String winner) {
+        if ("draw".equals(winner)) {
+            return "Nereseno! Rezultat je " + ownerScore + " : " + guestScore;
+        }
+
+        boolean currentUserWon = (isOwner && "owner".equals(winner))
+                || (!isOwner && "guest".equals(winner));
+
+        if (currentUserWon) {
+            return "Pobedili ste! Rezultat je " + ownerScore + " : " + guestScore;
+        }
+
+        return "Izgubili ste. Rezultat je " + ownerScore + " : " + guestScore;
+    }
+
+    private void resetTimerStyle() {
+        tvTimer.setTextColor(Color.parseColor("#1E1E1E"));
+        progressTimer.setIndicatorColor(Color.parseColor("#6200EE"));
+    }
+
+    private void stopTimer() {
+        if (countDownTimer != null) {
+            countDownTimer.cancel();
+            countDownTimer = null;
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        stopTimer();
+        if (gameListener != null) {
+            gameListener.remove();
+        }
     }
 }
