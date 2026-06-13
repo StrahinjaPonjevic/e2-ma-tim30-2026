@@ -226,6 +226,20 @@ public class FirebaseManager {
                 });
     }
 
+    public void signInAnonymously(final AuthCallback callback) {
+        mAuth.signInAnonymously()
+                .addOnCompleteListener(new OnCompleteListener<com.google.firebase.auth.AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<com.google.firebase.auth.AuthResult> task) {
+                        if (task.isSuccessful()) {
+                            callback.onSuccess();
+                        } else {
+                            callback.onError("Greška pri anonimnom logovanju");
+                        }
+                    }
+                });
+    }
+
     public void logout() {
         mAuth.signOut();
     }

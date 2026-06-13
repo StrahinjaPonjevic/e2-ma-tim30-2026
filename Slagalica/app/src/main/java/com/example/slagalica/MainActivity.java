@@ -62,6 +62,24 @@ public class MainActivity extends AppCompatActivity {
             showLoggedInView(currentUser);
         } else {
             showGuestView();
+            firebaseManager.signInAnonymously(new FirebaseManager.AuthCallback() {
+                @Override
+                public void onSuccess() {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            FirebaseUser user = firebaseManager.getCurrentUser();
+                            if (user != null) {
+                                showLoggedInView(user);
+                            }
+                        }
+                    });
+                }
+
+                @Override
+                public void onError(String message) {
+                }
+            });
         }
     }
 
@@ -86,7 +104,7 @@ public class MainActivity extends AppCompatActivity {
         btnOpenPlayGuest.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                startActivity(new Intent(MainActivity.this, GameSelectionActivity.class));
+                startActivity(new Intent(MainActivity.this, SessionActivity.class));
             }
         });
     }
@@ -124,7 +142,7 @@ public class MainActivity extends AppCompatActivity {
         btnOpenPlayLoggedIn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                startActivity(new Intent(MainActivity.this, GameSelectionActivity.class));
+                startActivity(new Intent(MainActivity.this, SessionActivity.class));
             }
         });
     }

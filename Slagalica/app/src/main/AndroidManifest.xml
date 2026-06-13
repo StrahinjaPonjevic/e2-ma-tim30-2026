@@ -47,6 +47,12 @@
             android:name=".GameSelectionActivity"
             android:exported="false" />
         <activity
+            android:name=".SessionActivity"
+            android:exported="false" />
+        <activity
+            android:name=".WaitingRoomActivity"
+            android:exported="false" />
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
