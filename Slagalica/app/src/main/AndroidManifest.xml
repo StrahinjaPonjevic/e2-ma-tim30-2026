@@ -30,7 +30,7 @@
         <activity
             android:name=".MojBrojActivity"
             android:exported="false"
-            android:screenOrientation="landscape" />
+            android:configChanges="orientation|screenSize" />
         <activity
             android:name=".KoZnaZnaActivity"
             android:exported="false" />

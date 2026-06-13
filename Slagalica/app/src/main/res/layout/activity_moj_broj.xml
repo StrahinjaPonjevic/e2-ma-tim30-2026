@@ -5,155 +5,199 @@
     android:layout_height="match_parent"
     android:background="#F5F5F5"
     android:fitsSystemWindows="true"
-    android:paddingStart="24dp"
-    android:paddingTop="14dp"
-    android:paddingEnd="24dp"
-    android:paddingBottom="14dp">
+    android:paddingStart="12dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="8dp">
 
-    <TextView
-        android:id="@+id/tvGameTitle"
-        android:layout_width="wrap_content"
+    <include
+        android:id="@+id/gameHeader"
+        layout="@layout/view_game_header"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Moj broj"
-        android:textColor="#1E1E1E"
-        android:textSize="24sp"
-        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
-        android:id="@+id/tvRound"
-        android:layout_width="wrap_content"
+        android:id="@+id/tvTurnInfo"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="24dp"
-        android:text="Runda: 1/2"
+        android:layout_marginTop="4dp"
+        android:gravity="center"
+        android:minHeight="24dp"
+        android:text="..."
         android:textColor="#1E1E1E"
-        android:textSize="15sp"
+        android:textSize="13sp"
         android:textStyle="bold"
-        app:layout_constraintBottom_toBottomOf="@id/tvGameTitle"
-        app:layout_constraintStart_toEndOf="@id/tvGameTitle"
-        app:layout_constraintTop_toTopOf="@id/tvGameTitle" />
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/gameHeader" />
 
-    <TextView
-        android:id="@+id/tvTimer"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Vreme: 60s"
-        android:textColor="#1E1E1E"
-        android:textSize="15sp"
-        android:textStyle="bold"
-        app:layout_constraintBottom_toBottomOf="@id/tvGameTitle"
-        app:layout_constraintEnd_toEndOf="@id/mainArea"
-        app:layout_constraintTop_toTopOf="@id/tvGameTitle" />
-
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <LinearLayout
         android:id="@+id/mainArea"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginTop="12dp"
-        android:layout_marginEnd="18dp"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/operatorPanel"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvGameTitle">
+        app:layout_constraintTop_toBottomOf="@id/tvTurnInfo">
 
-        <TextView
-            android:id="@+id/tvTargetNumber"
-            android:layout_width="0dp"
-            android:layout_height="54dp"
-            android:background="@android:drawable/edit_text"
-            android:gravity="center"
-            android:text="Trazeni broj: ---"
-            android:textColor="#1E1E1E"
-            android:textSize="23sp"
-            android:textStyle="bold"
-            app:layout_constraintEnd_toStartOf="@id/tvCurrentResult"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+        <LinearLayout
+            android:id="@+id/targetRow"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginBottom="8dp"
+            android:layout_weight="1"
+            android:orientation="horizontal">
 
-        <TextView
-            android:id="@+id/tvCurrentResult"
-            android:layout_width="130dp"
-            android:layout_height="54dp"
-            android:layout_marginStart="10dp"
-            android:background="@android:drawable/edit_text"
-            android:gravity="center"
-            android:text="= ---"
-            android:textColor="#1E1E1E"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toEndOf="@id/tvTargetNumber"
-            app:layout_constraintTop_toTopOf="parent" />
+            <TextView
+                android:id="@+id/tvTargetNumber"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:background="#FFFFFF"
+                android:elevation="2dp"
+                android:gravity="center"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:singleLine="false"
+                android:text="Traženi broj: ---"
+                android:textColor="#1E1E1E"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvCurrentResult"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="0.48"
+                android:background="#FFFFFF"
+                android:elevation="2dp"
+                android:gravity="center"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:text="= ---"
+                android:textColor="#1E1E1E"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
 
         <LinearLayout
             android:id="@+id/numbersRow"
-            android:layout_width="0dp"
-            android:layout_height="58dp"
-            android:layout_marginTop="14dp"
-            android:orientation="horizontal"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tvTargetNumber">
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginBottom="8dp"
+            android:layout_weight="1.25"
+            android:orientation="horizontal">
 
             <Button
                 android:id="@+id/btnNumber1"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_marginEnd="6dp"
+                android:layout_marginEnd="5dp"
                 android:layout_weight="1"
+                android:backgroundTint="#E9E9E9"
                 android:enabled="false"
+                android:includeFontPadding="false"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
                 android:text="-"
                 android:textAllCaps="false"
-                android:textSize="18sp"
+                android:textColor="#1E1E1E"
+                android:textSize="16sp"
                 android:textStyle="bold" />
 
             <Button
                 android:id="@+id/btnNumber2"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_marginEnd="6dp"
+                android:layout_marginEnd="5dp"
                 android:layout_weight="1"
+                android:backgroundTint="#E9E9E9"
                 android:enabled="false"
+                android:includeFontPadding="false"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
                 android:text="-"
                 android:textAllCaps="false"
-                android:textSize="18sp"
+                android:textColor="#1E1E1E"
+                android:textSize="16sp"
                 android:textStyle="bold" />
 
             <Button
                 android:id="@+id/btnNumber3"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_marginEnd="6dp"
+                android:layout_marginEnd="5dp"
                 android:layout_weight="1"
+                android:backgroundTint="#E9E9E9"
                 android:enabled="false"
+                android:includeFontPadding="false"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
                 android:text="-"
                 android:textAllCaps="false"
-                android:textSize="18sp"
+                android:textColor="#1E1E1E"
+                android:textSize="16sp"
                 android:textStyle="bold" />
 
             <Button
                 android:id="@+id/btnNumber4"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_marginEnd="6dp"
+                android:layout_marginEnd="5dp"
                 android:layout_weight="1"
+                android:backgroundTint="#E9E9E9"
                 android:enabled="false"
+                android:includeFontPadding="false"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
                 android:text="-"
                 android:textAllCaps="false"
-                android:textSize="18sp"
+                android:textColor="#1E1E1E"
+                android:textSize="16sp"
                 android:textStyle="bold" />
 
             <Button
                 android:id="@+id/btnNumber5"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_marginEnd="6dp"
+                android:layout_marginEnd="5dp"
                 android:layout_weight="1"
+                android:backgroundTint="#E9E9E9"
                 android:enabled="false"
+                android:includeFontPadding="false"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
                 android:text="-"
                 android:textAllCaps="false"
-                android:textSize="18sp"
+                android:textColor="#1E1E1E"
+                android:textSize="16sp"
                 android:textStyle="bold" />
 
             <Button
@@ -161,122 +205,225 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
+                android:backgroundTint="#E9E9E9"
                 android:enabled="false"
+                android:includeFontPadding="false"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
                 android:text="-"
                 android:textAllCaps="false"
-                android:textSize="18sp"
+                android:textColor="#1E1E1E"
+                android:textSize="16sp"
                 android:textStyle="bold" />
+
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/tvExpressionValue"
-            android:layout_width="0dp"
-            android:layout_height="56dp"
-            android:layout_marginTop="14dp"
-            android:background="@android:drawable/edit_text"
-            android:gravity="center_vertical"
-            android:paddingStart="14dp"
-            android:paddingEnd="14dp"
-            android:singleLine="true"
-            android:text="Izraz: "
-            android:textColor="#1E1E1E"
-            android:textSize="20sp"
-            app:layout_constraintEnd_toStartOf="@id/btnClearExpression"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/numbersRow" />
+        <LinearLayout
+            android:id="@+id/operatorRow"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginBottom="8dp"
+            android:layout_weight="1.1"
+            android:orientation="horizontal">
 
-        <Button
-            android:id="@+id/btnClearExpression"
-            android:layout_width="64dp"
-            android:layout_height="56dp"
-            android:layout_marginStart="5dp"
-            android:text="⌫"
-            android:textAllCaps="false"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            app:layout_constraintBottom_toBottomOf="@id/tvExpressionValue"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toEndOf="@id/tvExpressionValue"
-            app:layout_constraintTop_toTopOf="@id/tvExpressionValue" />
+            <Button
+                android:id="@+id/btnOpLeftBracket"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="5dp"
+                android:layout_weight="1"
+                android:backgroundTint="#E9E9E9"
+                android:enabled="false"
+                android:includeFontPadding="false"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
+                android:text="("
+                android:textAllCaps="false"
+                android:textColor="#1E1E1E"
+                android:textSize="19sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnOpRightBracket"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="5dp"
+                android:layout_weight="1"
+                android:backgroundTint="#E9E9E9"
+                android:enabled="false"
+                android:includeFontPadding="false"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
+                android:text=")"
+                android:textAllCaps="false"
+                android:textColor="#1E1E1E"
+                android:textSize="19sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnOpPlus"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="5dp"
+                android:layout_weight="1"
+                android:backgroundTint="#E9E9E9"
+                android:enabled="false"
+                android:includeFontPadding="false"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
+                android:text="+"
+                android:textAllCaps="false"
+                android:textColor="#1E1E1E"
+                android:textSize="19sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnOpMinus"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="5dp"
+                android:layout_weight="1"
+                android:backgroundTint="#E9E9E9"
+                android:enabled="false"
+                android:includeFontPadding="false"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
+                android:text="-"
+                android:textAllCaps="false"
+                android:textColor="#1E1E1E"
+                android:textSize="19sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnOpMultiply"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="5dp"
+                android:layout_weight="1"
+                android:backgroundTint="#E9E9E9"
+                android:enabled="false"
+                android:includeFontPadding="false"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
+                android:text="*"
+                android:textAllCaps="false"
+                android:textColor="#1E1E1E"
+                android:textSize="19sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnOpDivide"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:backgroundTint="#E9E9E9"
+                android:enabled="false"
+                android:includeFontPadding="false"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
+                android:text="/"
+                android:textAllCaps="false"
+                android:textColor="#1E1E1E"
+                android:textSize="19sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/expressionRow"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginBottom="8dp"
+            android:layout_weight="0.8"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvExpressionValue"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
+                android:background="#FFFFFF"
+                android:elevation="2dp"
+                android:ellipsize="end"
+                android:gravity="center_vertical"
+                android:maxLines="1"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:text="Izraz: "
+                android:textColor="#1E1E1E"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnClearExpression"
+                android:layout_width="52dp"
+                android:layout_height="match_parent"
+                android:backgroundTint="#E9E9E9"
+                android:enabled="false"
+                android:includeFontPadding="false"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
+                android:text="⌫"
+                android:textAllCaps="false"
+                android:textColor="#1E1E1E"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
 
         <Button
             android:id="@+id/btnConfirmExpression"
-            android:layout_width="0dp"
-            android:layout_height="50dp"
-            android:layout_marginTop="12dp"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginBottom="4dp"
+            android:layout_weight="0.85"
+            android:backgroundTint="#E9E9E9"
+            android:enabled="true"
+            android:includeFontPadding="false"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minHeight="0dp"
+            android:paddingTop="0dp"
+            android:paddingBottom="0dp"
             android:text="STOP"
             android:textAllCaps="false"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tvExpressionValue" />
-    </androidx.constraintlayout.widget.ConstraintLayout>
-
-    <GridLayout
-        android:id="@+id/operatorPanel"
-        android:layout_width="168dp"
-        android:layout_height="196dp"
-        android:columnCount="2"
-        android:rowCount="3"
-        android:useDefaultMargins="true"
-        app:layout_constraintBottom_toBottomOf="@id/mainArea"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@id/mainArea">
-
-        <Button
-            android:id="@+id/btnOpLeftBracket"
-            android:layout_width="72dp"
-            android:layout_height="56dp"
-            android:text="("
-            android:textAllCaps="false"
-            android:textSize="22sp"
+            android:textColor="#1E1E1E"
+            android:textSize="18sp"
             android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/btnOpRightBracket"
-            android:layout_width="72dp"
-            android:layout_height="56dp"
-            android:text=")"
-            android:textAllCaps="false"
-            android:textSize="22sp"
-            android:textStyle="bold" />
-
-        <Button
-            android:id="@+id/btnOpPlus"
-            android:layout_width="72dp"
-            android:layout_height="56dp"
-            android:text="+"
-            android:textAllCaps="false"
-            android:textSize="22sp"
-            android:textStyle="bold" />
-
-        <Button
-            android:id="@+id/btnOpMinus"
-            android:layout_width="72dp"
-            android:layout_height="56dp"
-            android:text="-"
-            android:textAllCaps="false"
-            android:textSize="22sp"
-            android:textStyle="bold" />
-
-        <Button
-            android:id="@+id/btnOpMultiply"
-            android:layout_width="72dp"
-            android:layout_height="56dp"
-            android:text="*"
-            android:textAllCaps="false"
-            android:textSize="22sp"
-            android:textStyle="bold" />
-
-        <Button
-            android:id="@+id/btnOpDivide"
-            android:layout_width="72dp"
-            android:layout_height="56dp"
-            android:text="/"
-            android:textAllCaps="false"
-            android:textSize="22sp"
-            android:textStyle="bold" />
-    </GridLayout>
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
