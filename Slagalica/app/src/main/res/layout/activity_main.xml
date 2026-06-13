@@ -8,145 +8,117 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
         android:gravity="center"
-        android:padding="24dp">
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:visibility="visible">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Slagalica"
-            android:textSize="36sp"
-            android:textStyle="bold"
-            android:textColor="#1E1E1E"
             android:layout_marginTop="40dp"
-            android:layout_marginBottom="12dp" />
+            android:layout_marginBottom="8dp"
+            android:text="Slagalica"
+            android:textColor="#1E1E1E"
+            android:textSize="36sp"
+            android:textStyle="bold" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="40dp"
+            android:gravity="center"
             android:text="Mobilna kviz aplikacija"
-            android:textSize="16sp"
             android:textColor="#666666"
-            android:gravity="center"
-            android:layout_marginBottom="40dp" />
+            android:textSize="16sp" />
 
-        <Button
-            android:id="@+id/btnOpenLogin"
-            android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:text="Prijava"
-            android:textAllCaps="false"
-            android:textSize="16sp"
-            android:layout_marginBottom="16dp" />
-
-        <Button
-            android:id="@+id/btnOpenRegister"
-            android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:text="Registracija"
-            android:textAllCaps="false"
-            android:textSize="16sp"
-            android:layout_marginBottom="16dp" />
-
-        <Button
-            android:id="@+id/btnOpenProfile"
-            android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:text="Otvori profil"
-            android:textAllCaps="false"
-            android:textSize="16sp"
-            android:layout_marginBottom="32dp" />
-
-        <TextView
+        <!-- Guest section (not logged in) -->
+        <LinearLayout
+            android:id="@+id/guestSection"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Student 1 - igre"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:textColor="#1E1E1E"
             android:gravity="center"
-            android:layout_marginBottom="16dp" />
+            android:orientation="vertical"
+            android:visibility="gone">
 
-        <Button
-            android:id="@+id/btnOpenKorakPoKorak"
-            android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:text="Korak po korak"
-            android:textAllCaps="false"
-            android:textSize="16sp"
-            android:layout_marginBottom="16dp" />
+            <Button
+                android:id="@+id/btnOpenLogin"
+                android:layout_width="match_parent"
+                android:layout_height="55dp"
+                android:layout_marginBottom="16dp"
+                android:text="Prijava"
+                android:textAllCaps="false"
+                android:textSize="16sp" />
 
-        <Button
-            android:id="@+id/btnOpenMojBroj"
-            android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:text="Moj broj"
-            android:textAllCaps="false"
-            android:textSize="16sp"
-            android:layout_marginBottom="16dp"/>
+            <Button
+                android:id="@+id/btnOpenRegister"
+                android:layout_width="match_parent"
+                android:layout_height="55dp"
+                android:layout_marginBottom="16dp"
+                android:text="Registracija"
+                android:textAllCaps="false"
+                android:textSize="16sp" />
 
-        <TextView
+            <Button
+                android:id="@+id/btnOpenPlayGuest"
+                android:layout_width="match_parent"
+                android:layout_height="55dp"
+                android:layout_marginBottom="16dp"
+                android:text="Igraj"
+                android:textAllCaps="false"
+                android:textSize="16sp" />
+
+        </LinearLayout>
+
+        <!-- Logged-in section -->
+        <LinearLayout
+            android:id="@+id/loggedInSection"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Student 2 - igre"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:textColor="#1E1E1E"
             android:gravity="center"
-            android:layout_marginBottom="16dp" />
+            android:orientation="vertical"
+            android:visibility="visible">
 
-        <Button
-            android:id="@+id/btnOpenKoZnaZna"
-            android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:text="Ko zna zna"
-            android:textAllCaps="false"
-            android:textSize="16sp"
-            android:layout_marginBottom="16dp" />
+            <Button
+                android:id="@+id/btnOpenProfile"
+                android:layout_width="65dp"
+                android:layout_height="65dp"
+                android:layout_gravity="center"
+                android:layout_marginBottom="24dp"
+                android:text="P"
+                android:textAllCaps="false"
+                android:textSize="20sp" />
 
-        <Button
-            android:id="@+id/btnOpenSpojnice"
-            android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:text="Spojnice"
-            android:textAllCaps="false"
-            android:textSize="16sp"
-            android:layout_marginBottom="16dp"/>
+            <TextView
+                android:id="@+id/tvLoggedInUser"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:gravity="center"
+                android:text=""
+                android:textColor="#222222"
+                android:textSize="18sp" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Student 3 - igre"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:textColor="#1E1E1E"
-            android:gravity="center"
-            android:layout_marginBottom="16dp" />
+            <TextView
+                android:id="@+id/tvTokensStars"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="32dp"
+                android:gravity="center"
+                android:text=""
+                android:textColor="#666666"
+                android:textSize="14sp" />
 
-        <Button
-            android:id="@+id/btnOpenAsocijacije"
-            android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:text="Asocijacije"
-            android:textAllCaps="false"
-            android:textSize="16sp"
-            android:layout_marginBottom="16dp"/>
+            <Button
+                android:id="@+id/btnOpenPlayLoggedIn"
+                android:layout_width="match_parent"
+                android:layout_height="55dp"
+                android:layout_marginBottom="16dp"
+                android:text="Igraj"
+                android:textAllCaps="false"
+                android:textSize="16sp" />
 
-        <Button
-            android:id="@+id/btnOpenSkocko"
-            android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:text="Skočko"
-            android:textAllCaps="false"
-            android:textSize="16sp"
-            android:layout_marginBottom="16dp"/>
-
-        <Button
-            android:id="@+id/btnTestNotif"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Test Notifikacija" />
+        </LinearLayout>
 
     </LinearLayout>
 
