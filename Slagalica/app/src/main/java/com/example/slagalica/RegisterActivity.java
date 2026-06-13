@@ -1,13 +1,6 @@
 package com.example.slagalica;
 
 import android.os.Bundle;
-
-import androidx.activity.EdgeToEdge;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
-import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -15,6 +8,8 @@ import android.widget.Spinner;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.example.slagalica.auth.FirebaseManager;
 
 public class RegisterActivity extends AppCompatActivity {
 
@@ -25,11 +20,14 @@ public class RegisterActivity extends AppCompatActivity {
     private Spinner spinnerRegion;
     private Button btnRegister;
     private Button btnBack;
+    private FirebaseManager firebaseManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_register);
+
+        firebaseManager = new FirebaseManager();
 
         etEmail = findViewById(R.id.etEmail);
         etUsername = findViewById(R.id.etUsername);
@@ -81,6 +79,11 @@ public class RegisterActivity extends AppCompatActivity {
             return;
         }
 
+        if (password.length() < 6) {
+            etPassword.setError("Lozinka mora imati najmanje 6 karaktera");
+            return;
+        }
+
         if (repeatedPassword.isEmpty()) {
             etRepeatedPassword.setError("Ponovite lozinku");
             return;
@@ -91,12 +94,35 @@ public class RegisterActivity extends AppCompatActivity {
             return;
         }
 
-        Toast.makeText(
-                this,
-                "Registracija uspešna. Link za potvrdu je poslat na email.",
-                Toast.LENGTH_LONG
-        ).show();
+        btnRegister.setEnabled(false);
 
-        finish();
+        firebaseManager.registerUser(email, password, username, region, new FirebaseManager.AuthCallback() {
+            @Override
+            public void onSuccess() {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        btnRegister.setEnabled(true);
+                        Toast.makeText(
+                                RegisterActivity.this,
+                                "Registracija uspešna. Link za potvrdu je poslat na email.",
+                                Toast.LENGTH_LONG
+                        ).show();
+                        finish();
+                    }
+                });
+            }
+
+            @Override
+            public void onError(final String message) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        btnRegister.setEnabled(true);
+                        Toast.makeText(RegisterActivity.this, message, Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+        });
     }
 }
