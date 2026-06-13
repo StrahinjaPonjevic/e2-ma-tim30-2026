@@ -1,235 +1,181 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F5F5"
-    android:fitsSystemWindows="true"
-    android:paddingStart="18dp"
-    android:paddingTop="14dp"
-    android:paddingEnd="18dp"
-    android:paddingBottom="14dp">
+    android:orientation="vertical"
+    android:background="#F5F5F5">
+
+    <include layout="@layout/view_game_header" />
 
     <TextView
-        android:id="@+id/tvGameTitle"
-        android:layout_width="0dp"
+        android:id="@+id/tvTurnInfo"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:text="Korak po korak"
-        android:textColor="#1E1E1E"
-        android:textSize="24sp"
+        android:text=""
+        android:textSize="16sp"
+        android:textColor="#6200EE"
         android:textStyle="bold"
-        app:layout_constraintEnd_toStartOf="@id/headerInfo"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        android:gravity="center"
+        android:paddingTop="8dp"
+        android:paddingBottom="4dp" />
 
-    <LinearLayout
-        android:id="@+id/headerInfo"
-        android:layout_width="116dp"
+    <TextView
+        android:id="@+id/tvCurrentPoints"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="8dp"
-        android:gravity="end"
-        android:orientation="vertical"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@id/tvGameTitle">
+        android:text=""
+        android:textSize="14sp"
+        android:textColor="#333333"
+        android:gravity="center"
+        android:paddingBottom="4dp" />
 
-        <TextView
-            android:id="@+id/tvRound"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Runda: 1/2"
-            android:textColor="#1E1E1E"
-            android:textSize="13sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/tvTimer"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Vreme: 70s"
-            android:textColor="#1E1E1E"
-            android:textSize="13sp"
-            android:textStyle="bold" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:id="@+id/statusRow"
-        android:layout_width="0dp"
-        android:layout_height="44dp"
-        android:layout_marginStart="8dp"
-        android:layout_marginTop="12dp"
-        android:layout_marginEnd="8dp"
-        android:orientation="horizontal"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvGameTitle">
-
-        <TextView
-            android:id="@+id/tvCurrentPoints"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_marginEnd="8dp"
-            android:layout_weight="1"
-            android:background="@android:drawable/edit_text"
-            android:gravity="center"
-            android:text="20"
-            android:textColor="#1E1E1E"
-            android:textSize="20sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/tvStepSeconds"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_marginStart="8dp"
-            android:layout_weight="1"
-            android:background="@android:drawable/edit_text"
-            android:gravity="center"
-            android:text="10s"
-            android:textColor="#1E1E1E"
-            android:textSize="20sp"
-            android:textStyle="bold" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:id="@+id/stepsContainer"
-        android:layout_width="0dp"
+    <ScrollView
+        android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="12dp"
-        android:layout_marginBottom="12dp"
-        android:layout_marginLeft="8dp"
-        android:layout_marginRight="8dp"
-        android:orientation="vertical"
-        app:layout_constraintBottom_toTopOf="@id/etAnswer"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/statusRow">
+        android:layout_weight="1"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
 
-        <TextView
-            android:id="@+id/tvStep1"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_marginBottom="6dp"
-            android:layout_weight="1"
-            android:background="@android:drawable/edit_text"
-            android:gravity="center_vertical"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:text="Ima veze sa Savom i Dunavom"
-            android:textColor="#1E1E1E"
-            android:textSize="14sp" />
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/tvStep2"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_marginBottom="6dp"
-            android:layout_weight="1"
-            android:background="@android:drawable/edit_text"
-            android:gravity="center_vertical"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:text="Ima veze sa zdravljem"
-            android:textColor="#1E1E1E"
-            android:textSize="14sp" />
+            <TextView
+                android:id="@+id/tvStep0"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="4dp"
+                android:background="@android:drawable/edit_text"
+                android:gravity="center_vertical"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text=""
+                android:textColor="#1E1E1E"
+                android:textSize="14sp"
+                android:visibility="gone" />
 
-        <TextView
-            android:id="@+id/tvStep3"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_marginBottom="6dp"
-            android:layout_weight="1"
-            android:background="@android:drawable/edit_text"
-            android:gravity="center_vertical"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:text="Za vozilo je obavezno"
-            android:textColor="#1E1E1E"
-            android:textSize="14sp" />
+            <TextView
+                android:id="@+id/tvStep1"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="4dp"
+                android:background="@android:drawable/edit_text"
+                android:gravity="center_vertical"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text=""
+                android:textColor="#1E1E1E"
+                android:textSize="14sp"
+                android:visibility="gone" />
 
-        <TextView
-            android:id="@+id/tvStep4"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_marginBottom="6dp"
-            android:layout_weight="1"
-            android:background="@android:drawable/edit_text"
-            android:gravity="center_vertical"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:text=""
-            android:textColor="#1E1E1E"
-            android:textSize="14sp" />
+            <TextView
+                android:id="@+id/tvStep2"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="4dp"
+                android:background="@android:drawable/edit_text"
+                android:gravity="center_vertical"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text=""
+                android:textColor="#1E1E1E"
+                android:textSize="14sp"
+                android:visibility="gone" />
 
-        <TextView
-            android:id="@+id/tvStep5"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_marginBottom="6dp"
-            android:layout_weight="1"
-            android:background="@android:drawable/edit_text"
-            android:gravity="center_vertical"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:text=""
-            android:textColor="#1E1E1E"
-            android:textSize="14sp" />
+            <TextView
+                android:id="@+id/tvStep3"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="4dp"
+                android:background="@android:drawable/edit_text"
+                android:gravity="center_vertical"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text=""
+                android:textColor="#1E1E1E"
+                android:textSize="14sp"
+                android:visibility="gone" />
 
-        <TextView
-            android:id="@+id/tvStep6"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_marginBottom="6dp"
-            android:layout_weight="1"
-            android:background="@android:drawable/edit_text"
-            android:gravity="center_vertical"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:text=""
-            android:textColor="#1E1E1E"
-            android:textSize="14sp" />
+            <TextView
+                android:id="@+id/tvStep4"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="4dp"
+                android:background="@android:drawable/edit_text"
+                android:gravity="center_vertical"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text=""
+                android:textColor="#1E1E1E"
+                android:textSize="14sp"
+                android:visibility="gone" />
 
-        <TextView
-            android:id="@+id/tvStep7"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:background="@android:drawable/edit_text"
-            android:gravity="center_vertical"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:text=""
-            android:textColor="#1E1E1E"
-            android:textSize="14sp" />
-    </LinearLayout>
+            <TextView
+                android:id="@+id/tvStep5"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="4dp"
+                android:background="@android:drawable/edit_text"
+                android:gravity="center_vertical"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text=""
+                android:textColor="#1E1E1E"
+                android:textSize="14sp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tvStep6"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginBottom="8dp"
+                android:background="@android:drawable/edit_text"
+                android:gravity="center_vertical"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text=""
+                android:textColor="#1E1E1E"
+                android:textSize="14sp"
+                android:visibility="gone" />
+
+        </LinearLayout>
+
+    </ScrollView>
 
     <EditText
         android:id="@+id/etAnswer"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="48dp"
-        android:layout_marginLeft="8dp"
-        android:layout_marginRight="8dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
         android:background="@android:drawable/edit_text"
-        android:hint="Unesite konacan pojam"
+        android:hint="Unesite odgovor"
         android:inputType="text"
         android:padding="10dp"
-        android:textSize="15sp"
-        app:layout_constraintBottom_toTopOf="@id/btnConfirmAnswer"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        android:textSize="15sp" />
 
     <Button
         android:id="@+id/btnConfirmAnswer"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="50dp"
-        android:layout_marginTop="10dp"
-        android:layout_marginLeft="8dp"
-        android:layout_marginRight="8dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
         android:text="Potvrdi odgovor"
         android:textAllCaps="false"
-        android:textSize="16sp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        android:textSize="16sp" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+    <Button
+        android:id="@+id/btnForfeit"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        android:text="Odustani"
+        android:textAllCaps="false"
+        android:textSize="16sp" />
+
+</LinearLayout>
