@@ -4,8 +4,6 @@ import androidx.annotation.NonNull;
 
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
-import com.google.firebase.auth.AuthCredential;
-import com.google.firebase.auth.EmailAuthProvider;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -226,32 +224,32 @@ public class FirebaseManager {
     }
 
     public void resetPassword(String email, String oldPassword, String newPassword, AuthCallback callback) {
-        AuthCredential credential = EmailAuthProvider.getCredential(email, oldPassword);
-        FirebaseUser user = mAuth.getCurrentUser();
-        if (user == null) {
-            callback.onError("Morate biti prijavljeni");
-            return;
-        }
-        user.reauthenticate(credential)
-                .addOnCompleteListener(new OnCompleteListener<Void>() {
+        mAuth.signInWithEmailAndPassword(email, oldPassword)
+                .addOnCompleteListener(new OnCompleteListener<com.google.firebase.auth.AuthResult>() {
                     @Override
-                    public void onComplete(@NonNull Task<Void> task) {
+                    public void onComplete(@NonNull Task<com.google.firebase.auth.AuthResult> task) {
                         if (task.isSuccessful()) {
-                            user.updatePassword(newPassword)
-                                    .addOnCompleteListener(new OnCompleteListener<Void>() {
-                                        @Override
-                                        public void onComplete(@NonNull Task<Void> updateTask) {
-                                            if (updateTask.isSuccessful()) {
+                            FirebaseUser user = mAuth.getCurrentUser();
+                            if (user != null) {
+                                user.updatePassword(newPassword)
+                                        .addOnCompleteListener(new OnCompleteListener<Void>() {
+                                            @Override
+                                            public void onComplete(@NonNull Task<Void> updateTask) {
                                                 mAuth.signOut();
-                                                callback.onSuccess();
-                                            } else {
-                                                String error = updateTask.getException() != null
-                                                        ? updateTask.getException().getMessage()
-                                                        : "Promena lozinke nije uspela";
-                                                callback.onError(error);
+                                                if (updateTask.isSuccessful()) {
+                                                    callback.onSuccess();
+                                                } else {
+                                                    String error = updateTask.getException() != null
+                                                            ? updateTask.getException().getMessage()
+                                                            : "Promena lozinke nije uspela";
+                                                    callback.onError(error);
+                                                }
                                             }
-                                        }
-                                    });
+                                        });
+                            } else {
+                                mAuth.signOut();
+                                callback.onError("Greška pri resetovanju lozinke");
+                            }
                         } else {
                             callback.onError("Stara lozinka nije tačna");
                         }

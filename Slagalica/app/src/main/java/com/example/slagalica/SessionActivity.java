@@ -55,31 +55,72 @@ public class SessionActivity extends AppCompatActivity {
                 finish();
             }
         });
+
+        FirebaseUser currentUser = firebaseManager.getCurrentUser();
+        if (currentUser == null) {
+            btnCreateGame.setEnabled(false);
+            btnJoinGame.setEnabled(false);
+            firebaseManager.signInAnonymously(new FirebaseManager.AuthCallback() {
+                @Override
+                public void onSuccess() {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            btnCreateGame.setEnabled(true);
+                            btnJoinGame.setEnabled(true);
+                        }
+                    });
+                }
+
+                @Override
+                public void onError(String message) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            btnCreateGame.setEnabled(true);
+                            btnJoinGame.setEnabled(true);
+                            Toast.makeText(SessionActivity.this, message, Toast.LENGTH_LONG).show();
+                        }
+                    });
+                }
+            });
+        }
     }
 
     private void createGame() {
-        FirebaseUser user = firebaseManager.getCurrentUser();
-        if (user == null) {
-            Toast.makeText(this, "Morate biti prijavljeni", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
         btnCreateGame.setEnabled(false);
 
-        resolveUsername(user, new FirebaseManager.UserDataCallback() {
+        ensureSignedIn(new Runnable() {
             @Override
-            public void onSuccess(final String username, String region) {
-                sessionManager.createSession(user.getUid(), username, new SessionManager.SessionCallback() {
+            public void run() {
+                FirebaseUser user = firebaseManager.getCurrentUser();
+                resolveUsername(user, new FirebaseManager.UserDataCallback() {
                     @Override
-                    public void onSuccess(String sessionId) {
-                        runOnUiThread(new Runnable() {
+                    public void onSuccess(final String username, String region) {
+                        sessionManager.createSession(user.getUid(), username, new SessionManager.SessionCallback() {
                             @Override
-                            public void run() {
-                                btnCreateGame.setEnabled(true);
-                                Intent intent = new Intent(SessionActivity.this, WaitingRoomActivity.class);
-                                intent.putExtra("sessionId", sessionId);
-                                intent.putExtra("isOwner", true);
-                                startActivity(intent);
+                            public void onSuccess(String sessionId) {
+                                runOnUiThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        btnCreateGame.setEnabled(true);
+                                        Intent intent = new Intent(SessionActivity.this, WaitingRoomActivity.class);
+                                        intent.putExtra("sessionId", sessionId);
+                                        intent.putExtra("isOwner", true);
+                                        startActivity(intent);
+                                    }
+                                });
+                            }
+
+                            @Override
+                            public void onError(final String message) {
+                                runOnUiThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        btnCreateGame.setEnabled(true);
+                                        Toast.makeText(SessionActivity.this, message, Toast.LENGTH_SHORT).show();
+                                    }
+                                });
                             }
                         });
                     }
@@ -90,35 +131,24 @@ public class SessionActivity extends AppCompatActivity {
                             @Override
                             public void run() {
                                 btnCreateGame.setEnabled(true);
-                                Toast.makeText(SessionActivity.this, message, Toast.LENGTH_SHORT).show();
-                            }
-                        });
-                    }
-                });
-            }
-
-            @Override
-            public void onError(final String message) {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        btnCreateGame.setEnabled(true);
-                        sessionManager.createSession(user.getUid(), "Igrač", new SessionManager.SessionCallback() {
-                            @Override
-                            public void onSuccess(String sessionId) {
-                                Intent intent = new Intent(SessionActivity.this, WaitingRoomActivity.class);
-                                intent.putExtra("sessionId", sessionId);
-                                intent.putExtra("isOwner", true);
-                                startActivity(intent);
-                            }
-
-                            @Override
-                            public void onError(String msg) {
-                                runOnUiThread(new Runnable() {
+                                sessionManager.createSession(user.getUid(), "Igrač", new SessionManager.SessionCallback() {
                                     @Override
-                                    public void run() {
-                                        btnCreateGame.setEnabled(true);
-                                        Toast.makeText(SessionActivity.this, msg, Toast.LENGTH_SHORT).show();
+                                    public void onSuccess(String sessionId) {
+                                        Intent intent = new Intent(SessionActivity.this, WaitingRoomActivity.class);
+                                        intent.putExtra("sessionId", sessionId);
+                                        intent.putExtra("isOwner", true);
+                                        startActivity(intent);
+                                    }
+
+                                    @Override
+                                    public void onError(String msg) {
+                                        runOnUiThread(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                btnCreateGame.setEnabled(true);
+                                                Toast.makeText(SessionActivity.this, msg, Toast.LENGTH_SHORT).show();
+                                            }
+                                        });
                                     }
                                 });
                             }
@@ -137,23 +167,23 @@ public class SessionActivity extends AppCompatActivity {
             return;
         }
 
-        FirebaseUser user = firebaseManager.getCurrentUser();
-        if (user == null) {
-            Toast.makeText(this, "Morate biti prijavljeni", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
         btnJoinGame.setEnabled(false);
 
-        resolveUsername(user, new FirebaseManager.UserDataCallback() {
+        ensureSignedIn(new Runnable() {
             @Override
-            public void onSuccess(final String username, String region) {
-                doJoin(code, user.getUid(), username);
-            }
+            public void run() {
+                FirebaseUser user = firebaseManager.getCurrentUser();
+                resolveUsername(user, new FirebaseManager.UserDataCallback() {
+                    @Override
+                    public void onSuccess(final String username, String region) {
+                        doJoin(code, user.getUid(), username);
+                    }
 
-            @Override
-            public void onError(final String message) {
-                doJoin(code, user.getUid(), "Igrač");
+                    @Override
+                    public void onError(final String message) {
+                        doJoin(code, user.getUid(), "Igrač");
+                    }
+                });
             }
         });
     }
@@ -188,6 +218,32 @@ public class SessionActivity extends AppCompatActivity {
                 });
             }
         });
+    }
+
+    private void ensureSignedIn(final Runnable action) {
+        FirebaseUser user = firebaseManager.getCurrentUser();
+        if (user != null) {
+            action.run();
+        } else {
+            firebaseManager.signInAnonymously(new FirebaseManager.AuthCallback() {
+                @Override
+                public void onSuccess() {
+                    runOnUiThread(action);
+                }
+
+                @Override
+                public void onError(String message) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            btnCreateGame.setEnabled(true);
+                            btnJoinGame.setEnabled(true);
+                            Toast.makeText(SessionActivity.this, message, Toast.LENGTH_LONG).show();
+                        }
+                    });
+                }
+            });
+        }
     }
 
     private void resolveUsername(FirebaseUser user, FirebaseManager.UserDataCallback callback) {

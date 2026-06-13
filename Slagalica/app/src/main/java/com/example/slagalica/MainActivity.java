@@ -72,25 +72,21 @@ public class MainActivity extends AppCompatActivity {
         tvTokensStars = findViewById(R.id.tvTokensStars);
 
         FirebaseUser currentUser = firebaseManager.getCurrentUser();
-        if (currentUser != null) {
+        if (currentUser != null && !currentUser.isAnonymous()) {
             showLoggedInView(currentUser);
         } else {
             showGuestView();
-            firebaseManager.signInAnonymously(new FirebaseManager.AuthCallback() {
-                @Override
-                public void onSuccess() {
-                    runOnUiThread(() -> {
-                        FirebaseUser user = firebaseManager.getCurrentUser();
-                        if (user != null) {
-                            showLoggedInView(user);
-                        }
-                    });
-                }
+            if (currentUser == null) {
+                firebaseManager.signInAnonymously(new FirebaseManager.AuthCallback() {
+                    @Override
+                    public void onSuccess() {
+                    }
 
-                @Override
-                public void onError(String message) {
-                }
-            });
+                    @Override
+                    public void onError(String message) {
+                    }
+                });
+            }
         }
     }
 
@@ -138,10 +134,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         FirebaseUser currentUser = firebaseManager.getCurrentUser();
-        if (currentUser != null) {
+        if (currentUser != null && !currentUser.isAnonymous()) {
             if (loggedInSection.getVisibility() != View.VISIBLE) {
-                showLoggedInView(currentUser);
-            } else {
                 showLoggedInView(currentUser);
             }
         } else {

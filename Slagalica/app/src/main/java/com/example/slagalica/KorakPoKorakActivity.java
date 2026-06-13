@@ -41,6 +41,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
     private FirebaseManager firebaseManager;
     private SessionManager sessionManager;
     private ProfileStatsUpdater profileStatsUpdater;
+    private KPKFirestoreRepository kpkRepository;
     private FirebaseFirestore db;
     private String sessionId;
     private boolean isOwner;
@@ -72,6 +73,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
         firebaseManager = new FirebaseManager();
         sessionManager = new SessionManager();
         profileStatsUpdater = new ProfileStatsUpdater();
+        kpkRepository = new KPKFirestoreRepository();
         db = FirebaseFirestore.getInstance();
 
         bindViews();
@@ -209,37 +211,60 @@ public class KorakPoKorakActivity extends AppCompatActivity {
     }
 
     private void initializeGame() {
-        List<KPKQuestionData.QuestionSet> sets = KPKQuestionData.pickTwoRandom();
-        KPKQuestionData.QuestionSet round1Set = sets.get(0);
-        KPKQuestionData.QuestionSet round2Set = sets.get(1);
+        tvTurnInfo.setText("Priprema podataka iz baze...");
+        enableAnswerInput(false);
 
-        Map<String, Object> gameData = new HashMap<>();
-        gameData.put("sessionId", sessionId);
-        gameData.put("gameType", "korak_po_korak");
-        gameData.put("ownerId", ownerId != null ? ownerId : "");
-        gameData.put("guestId", guestId != null ? guestId : "");
-        gameData.put("cluesRound1", java.util.Arrays.asList(round1Set.clues));
-        gameData.put("answerRound1", round1Set.answer);
-        gameData.put("cluesRound2", java.util.Arrays.asList(round2Set.clues));
-        gameData.put("answerRound2", round2Set.answer);
-        gameData.put("currentRound", 1);
-        gameData.put("phase", "waiting_for_owner");
-        gameData.put("ownerScore", 0);
-        gameData.put("guestScore", 0);
-        for (int i = 0; i < TOTAL_STEPS; i++) {
-            gameData.put("ownerStep" + (i + 1) + "Hits", 0);
-            gameData.put("guestStep" + (i + 1) + "Hits", 0);
-        }
-        gameData.put("gameFinished", false);
-        gameData.put("phaseStartedAt", FieldValue.serverTimestamp());
+        kpkRepository.loadQuestionSets(2, new KPKFirestoreRepository.LoadSetsCallback() {
+            @Override
+            public void onSuccess(final List<KPKQuestionData.QuestionSet> loadedSets) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        KPKQuestionData.QuestionSet round1Set = loadedSets.get(0);
+                        KPKQuestionData.QuestionSet round2Set = loadedSets.get(1);
 
-        db.collection("games").document(sessionId)
-                .set(gameData)
-                .addOnSuccessListener(aVoid -> {
-                    if (isOwner) {
-                        startRound1();
+                        Map<String, Object> gameData = new HashMap<>();
+                        gameData.put("sessionId", sessionId);
+                        gameData.put("gameType", "korak_po_korak");
+                        gameData.put("ownerId", ownerId != null ? ownerId : "");
+                        gameData.put("guestId", guestId != null ? guestId : "");
+                        gameData.put("cluesRound1", java.util.Arrays.asList(round1Set.clues));
+                        gameData.put("answerRound1", round1Set.answer);
+                        gameData.put("cluesRound2", java.util.Arrays.asList(round2Set.clues));
+                        gameData.put("answerRound2", round2Set.answer);
+                        gameData.put("currentRound", 1);
+                        gameData.put("phase", "waiting_for_owner");
+                        gameData.put("ownerScore", 0);
+                        gameData.put("guestScore", 0);
+                        for (int i = 0; i < TOTAL_STEPS; i++) {
+                            gameData.put("ownerStep" + (i + 1) + "Hits", 0);
+                            gameData.put("guestStep" + (i + 1) + "Hits", 0);
+                        }
+                        gameData.put("gameFinished", false);
+                        gameData.put("phaseStartedAt", FieldValue.serverTimestamp());
+
+                        db.collection("games").document(sessionId)
+                                .set(gameData)
+                                .addOnSuccessListener(aVoid -> {
+                                    if (isOwner) {
+                                        startRound1();
+                                    }
+                                });
                     }
                 });
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(KorakPoKorakActivity.this, message, Toast.LENGTH_LONG).show();
+                        finish();
+                    }
+                });
+            }
+        });
     }
 
     private void startRound1() {

@@ -16,7 +16,7 @@ public class KPKQuestionData {
         }
     }
 
-    private static final QuestionSet[] SETS = new QuestionSet[]{
+    public static final QuestionSet[] SETS = new QuestionSet[]{
             new QuestionSet(
                     new String[]{
                             "Ima veze sa Savom i Dunavom",
