@@ -424,6 +424,25 @@
             android:textSize="18sp"
             android:textStyle="bold" />
 
+        <Button
+            android:id="@+id/btnForfeit"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginBottom="4dp"
+            android:layout_weight="0.65"
+            android:backgroundTint="#F2D6D6"
+            android:includeFontPadding="false"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minHeight="0dp"
+            android:paddingTop="0dp"
+            android:paddingBottom="0dp"
+            android:text="Odustani"
+            android:textAllCaps="false"
+            android:textColor="#7A1F1F"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

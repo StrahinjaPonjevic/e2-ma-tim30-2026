@@ -12,7 +12,9 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.auth.FirebaseManager;
 import com.example.slagalica.auth.SessionManager;
+import com.example.slagalica.party.PartyRepository;
 import com.example.slagalica.profile.ProfileStatsUpdater;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -41,9 +43,15 @@ public class KorakPoKorakActivity extends AppCompatActivity {
     private FirebaseManager firebaseManager;
     private SessionManager sessionManager;
     private ProfileStatsUpdater profileStatsUpdater;
+    private PartyRepository partyRepository;
     private KPKFirestoreRepository kpkRepository;
     private FirebaseFirestore db;
     private String sessionId;
+    private String partyId;
+    private String gameDocId;
+    private String gameKey;
+    private boolean countsForStats = true;
+    private String currentUserId;
     private boolean isOwner;
     private boolean gameInitialized = false;
     private CountDownTimer countDownTimer;
@@ -68,13 +76,26 @@ public class KorakPoKorakActivity extends AppCompatActivity {
         setContentView(R.layout.activity_korak_po_korak);
 
         sessionId = getIntent().getStringExtra("sessionId");
+        partyId = getIntent().getStringExtra("partyId");
+        gameDocId = getIntent().getStringExtra("gameDocId");
+        gameKey = getIntent().getStringExtra("gameKey");
+        countsForStats = getIntent().getBooleanExtra("countsForStats", true);
         isOwner = getIntent().getBooleanExtra("isOwner", true);
+        if (gameDocId == null || gameDocId.trim().isEmpty()) {
+            gameDocId = sessionId;
+        }
+        if (gameKey == null || gameKey.trim().isEmpty()) {
+            gameKey = "korak_po_korak";
+        }
 
         firebaseManager = new FirebaseManager();
         sessionManager = new SessionManager();
         profileStatsUpdater = new ProfileStatsUpdater();
+        partyRepository = new PartyRepository();
         kpkRepository = new KPKFirestoreRepository();
         db = FirebaseFirestore.getInstance();
+        FirebaseUser currentUser = firebaseManager.getCurrentUser();
+        currentUserId = currentUser != null ? currentUser.getUid() : null;
 
         bindViews();
         setupHeader();
@@ -124,6 +145,9 @@ public class KorakPoKorakActivity extends AppCompatActivity {
         etAnswer = findViewById(R.id.etAnswer);
         btnConfirmAnswer = findViewById(R.id.btnConfirmAnswer);
         btnForfeit = findViewById(R.id.btnForfeit);
+        if (partyId != null) {
+            btnForfeit.setText("Odustani");
+        }
 
         btnConfirmAnswer.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -152,7 +176,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
     }
 
     private void listenForGameData() {
-        gameListener = db.collection("games").document(sessionId)
+        gameListener = db.collection("games").document(gameDocId)
                 .addSnapshotListener(new com.google.firebase.firestore.EventListener<DocumentSnapshot>() {
                     @Override
                     public void onEvent(DocumentSnapshot snapshot,
@@ -243,7 +267,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
                         gameData.put("gameFinished", false);
                         gameData.put("phaseStartedAt", FieldValue.serverTimestamp());
 
-                        db.collection("games").document(sessionId)
+                        db.collection("games").document(gameDocId)
                                 .set(gameData)
                                 .addOnSuccessListener(aVoid -> {
                                     if (isOwner) {
@@ -272,7 +296,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
         updates.put("currentRound", 1);
         updates.put("phase", "owner_playing");
         updates.put("phaseStartedAt", FieldValue.serverTimestamp());
-        db.collection("games").document(sessionId).update(updates);
+        db.collection("games").document(gameDocId).update(updates);
     }
 
     private void updateUIForPhase() {
@@ -377,7 +401,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
         updates.put("currentRound", 2);
         updates.put("phase", "guest_playing");
         updates.put("phaseStartedAt", FieldValue.serverTimestamp());
-        db.collection("games").document(sessionId).update(updates);
+        db.collection("games").document(gameDocId).update(updates);
     }
 
     private void startLocalTimer(int durationSeconds) {
@@ -517,7 +541,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
         final String phaseToSet = nextPhase;
         final int solvedStep = !isStealTurn ? getCurrentStep() : -1;
 
-        DocumentReference gameRef = db.collection("games").document(sessionId);
+        DocumentReference gameRef = db.collection("games").document(gameDocId);
         gameRef.get().addOnSuccessListener(snapshot -> {
             int currentOwner = snapshot.getLong("ownerScore") != null
                     ? snapshot.getLong("ownerScore").intValue() : 0;
@@ -543,7 +567,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
     }
 
     private void advanceAfterFailedSteal() {
-        DocumentReference gameRef = db.collection("games").document(sessionId);
+        DocumentReference gameRef = db.collection("games").document(gameDocId);
         String nextPhase = (currentRound == 1) ? "round1_done" : "round2_done";
         Map<String, Object> updates = new HashMap<>();
         updates.put("phase", nextPhase);
@@ -553,8 +577,9 @@ public class KorakPoKorakActivity extends AppCompatActivity {
 
     private void handleTimerExpiry() {
         if (gameFinished) return;
+        if (!isOwner) return;
 
-        DocumentReference gameRef = db.collection("games").document(sessionId);
+        DocumentReference gameRef = db.collection("games").document(gameDocId);
         String currentPhase = this.currentPhase;
         String nextPhase = null;
 
@@ -577,8 +602,12 @@ public class KorakPoKorakActivity extends AppCompatActivity {
     }
 
     private void determineWinner() {
-        DocumentReference gameRef = db.collection("games").document(sessionId);
+        if (!isOwner) return;
+        DocumentReference gameRef = db.collection("games").document(gameDocId);
         gameRef.get().addOnSuccessListener(snapshot -> {
+            if (Boolean.TRUE.equals(snapshot.getBoolean("gameFinished"))) {
+                return;
+            }
             int ownerSc = snapshot.getLong("ownerScore") != null
                     ? snapshot.getLong("ownerScore").intValue() : 0;
             int guestSc = snapshot.getLong("guestScore") != null
@@ -594,7 +623,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
             updates.put("winner", winner);
             updates.put("phase", "finished");
             gameRef.update(updates).addOnSuccessListener(unused -> {
-                if (ownerId != null && guestId != null) {
+                if (countsForStats && ownerId != null && guestId != null) {
                     profileStatsUpdater.recordKorakPoKorak(
                             ownerId,
                             guestId,
@@ -605,6 +634,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
                             guestStepHits
                     );
                 }
+                finishPartyGameIfNeeded(ownerSc, guestSc);
             });
         });
     }
@@ -626,11 +656,26 @@ public class KorakPoKorakActivity extends AppCompatActivity {
         }
 
         tvTurnInfo.setText(message);
-        btnForfeit.setText("Zatvori");
+        btnForfeit.setText(partyId != null ? "Nazad u partiju" : "Zatvori");
         btnForfeit.setOnClickListener(v -> finish());
     }
 
     private void forfeitGame() {
+        if (partyId != null) {
+            partyRepository.forfeitParty(partyId, currentUserId, new PartyRepository.OperationCallback() {
+                @Override
+                public void onSuccess() {
+                    runOnUiThread(() -> finish());
+                }
+
+                @Override
+                public void onError(String message) {
+                    runOnUiThread(() -> Toast.makeText(KorakPoKorakActivity.this, message, Toast.LENGTH_SHORT).show());
+                }
+            });
+            return;
+        }
+
         if (countDownTimer != null) countDownTimer.cancel();
         gameFinished = true;
 
@@ -639,10 +684,28 @@ public class KorakPoKorakActivity extends AppCompatActivity {
         updates.put("gameFinished", true);
         updates.put("winner", winner);
         updates.put("phase", "finished");
-        db.collection("games").document(sessionId).update(updates);
+        db.collection("games").document(gameDocId).update(updates);
 
         Toast.makeText(this, "Odustali ste.", Toast.LENGTH_SHORT).show();
         finish();
+    }
+
+    private void finishPartyGameIfNeeded(int ownerScore, int guestScore) {
+        if (partyId == null || !isOwner) {
+            return;
+        }
+
+        partyRepository.finishGameAndAdvance(partyId, gameKey, ownerScore, guestScore,
+                new PartyRepository.OperationCallback() {
+                    @Override
+                    public void onSuccess() {
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        runOnUiThread(() -> Toast.makeText(KorakPoKorakActivity.this, message, Toast.LENGTH_SHORT).show());
+                    }
+                });
     }
 
     private int getCurrentStep() {

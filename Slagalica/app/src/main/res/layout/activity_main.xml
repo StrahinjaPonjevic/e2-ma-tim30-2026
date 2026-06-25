@@ -114,7 +114,25 @@
                 android:layout_width="match_parent"
                 android:layout_height="55dp"
                 android:layout_marginBottom="16dp"
-                android:text="Igraj"
+                android:text="Igraj regularnu partiju"
+                android:textAllCaps="false"
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/btnOpenChat"
+                android:layout_width="match_parent"
+                android:layout_height="55dp"
+                android:layout_marginBottom="16dp"
+                android:text="Cet"
+                android:textAllCaps="false"
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/btnOpenChallenges"
+                android:layout_width="match_parent"
+                android:layout_height="55dp"
+                android:layout_marginBottom="16dp"
+                android:text="Izazovi"
                 android:textAllCaps="false"
                 android:textSize="16sp" />
 

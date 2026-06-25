@@ -4,9 +4,15 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
+import android.widget.Toast;
+
+import com.example.slagalica.party.PartyRepository;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -52,11 +58,26 @@ public class SkockoActivity extends AppCompatActivity {
     private CircularProgressIndicator progressTimer;
 
     private TextView tvRoundLabel, tvPlayer1Score, tvPlayer2Score;
+    private Button btnBack;
+    private PartyRepository partyRepository;
+    private String partyId;
+    private String gameKey;
+    private String currentUserId;
+    private boolean gameFinished = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_skocko);
+
+        partyId = getIntent().getStringExtra("partyId");
+        gameKey = getIntent().getStringExtra("gameKey");
+        if (gameKey == null || gameKey.trim().isEmpty()) {
+            gameKey = "skocko";
+        }
+        partyRepository = new PartyRepository();
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        currentUserId = currentUser != null ? currentUser.getUid() : null;
 
         bindViews();
         setupSymbolPicker();
@@ -102,7 +123,17 @@ public class SkockoActivity extends AppCompatActivity {
 
         findViewById(R.id.btnConfirm).setOnClickListener(v -> confirmGuess());
         findViewById(R.id.btnClear).setOnClickListener(v -> clearLastSymbol());
-        findViewById(R.id.btnBack).setOnClickListener(v -> finish());
+        btnBack = findViewById(R.id.btnBack);
+        if (partyId != null) {
+            btnBack.setText("Odustani");
+        }
+        btnBack.setOnClickListener(v -> {
+            if (partyId != null && !gameFinished) {
+                forfeitParty();
+            } else {
+                finish();
+            }
+        });
     }
 
     private void setupSymbolPicker() {
@@ -259,7 +290,48 @@ public class SkockoActivity extends AppCompatActivity {
     }
 
     private void finishGame() {
-        // TODO: Prosledi rezultate
+        if (gameFinished) {
+            return;
+        }
+
+        gameFinished = true;
+        stopTimer();
+        btnBack.setText(partyId != null ? "Nazad u partiju" : "Zatvori");
+
+        int totalScore = player1Score + player2Score;
+        if (partyId == null) {
+            Toast.makeText(this, "Kraj igre. Rezultat: " + totalScore, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        partyRepository.submitPlayerGameScoreAndAdvance(partyId, gameKey, currentUserId, totalScore,
+                new PartyRepository.OperationCallback() {
+                    @Override
+                    public void onSuccess() {
+                        runOnUiThread(() -> Toast.makeText(SkockoActivity.this,
+                                "Rezultat poslat. Cekanje protivnika ako jos nije zavrsio.",
+                                Toast.LENGTH_LONG).show());
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        runOnUiThread(() -> Toast.makeText(SkockoActivity.this, message, Toast.LENGTH_SHORT).show());
+                    }
+                });
+    }
+
+    private void forfeitParty() {
+        partyRepository.forfeitParty(partyId, currentUserId, new PartyRepository.OperationCallback() {
+            @Override
+            public void onSuccess() {
+                runOnUiThread(() -> finish());
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> Toast.makeText(SkockoActivity.this, message, Toast.LENGTH_SHORT).show());
+            }
+        });
     }
 
     private void startTimer(long durationMs) {

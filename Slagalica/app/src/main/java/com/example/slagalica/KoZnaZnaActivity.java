@@ -14,6 +14,7 @@ import com.example.slagalica.koznazna.FirestoreQuizQuestionRepository;
 import com.example.slagalica.koznazna.KoZnaZnaEvaluator;
 import com.example.slagalica.koznazna.KoZnaZnaSessionRepository;
 import com.example.slagalica.koznazna.QuizQuestion;
+import com.example.slagalica.party.PartyRepository;
 import com.example.slagalica.profile.ProfileStatsUpdater;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.google.firebase.auth.FirebaseUser;
@@ -48,8 +49,13 @@ public class KoZnaZnaActivity extends AppCompatActivity {
     private FirestoreQuizQuestionRepository questionRepository;
     private KoZnaZnaSessionRepository sessionRepository;
     private ProfileStatsUpdater profileStatsUpdater;
+    private PartyRepository partyRepository;
 
     private String sessionId;
+    private String partyId;
+    private String gameDocId;
+    private String gameKey;
+    private boolean countsForStats = true;
     private boolean isOwner;
     private String currentUserId;
     private ListenerRegistration gameListener;
@@ -74,9 +80,20 @@ public class KoZnaZnaActivity extends AppCompatActivity {
         questionRepository = new FirestoreQuizQuestionRepository();
         sessionRepository = new KoZnaZnaSessionRepository();
         profileStatsUpdater = new ProfileStatsUpdater();
+        partyRepository = new PartyRepository();
 
         sessionId = getIntent().getStringExtra("sessionId");
+        partyId = getIntent().getStringExtra("partyId");
+        gameDocId = getIntent().getStringExtra("gameDocId");
+        gameKey = getIntent().getStringExtra("gameKey");
+        countsForStats = getIntent().getBooleanExtra("countsForStats", true);
         isOwner = getIntent().getBooleanExtra("isOwner", true);
+        if (gameDocId == null || gameDocId.trim().isEmpty()) {
+            gameDocId = sessionId;
+        }
+        if (gameKey == null || gameKey.trim().isEmpty()) {
+            gameKey = "ko_zna_zna";
+        }
 
         FirebaseUser currentUser = firebaseManager.getCurrentUser();
         if (currentUser == null || sessionId == null || sessionId.isEmpty()) {
@@ -120,7 +137,16 @@ public class KoZnaZnaActivity extends AppCompatActivity {
         btnAnswerD.setOnClickListener(v -> submitAnswer(3));
 
         btnNextQuestion.setOnClickListener(v -> handleNextQuestionClick());
-        btnBack.setOnClickListener(v -> finish());
+        if (partyId != null) {
+            btnBack.setText("Odustani");
+        }
+        btnBack.setOnClickListener(v -> {
+            if (partyId != null) {
+                forfeitParty();
+            } else {
+                finish();
+            }
+        });
     }
 
     private void setupInitialHeader() {
@@ -156,7 +182,7 @@ public class KoZnaZnaActivity extends AppCompatActivity {
     }
 
     private void observeGame() {
-        gameListener = sessionRepository.observeGame(sessionId, new KoZnaZnaSessionRepository.GameStateListener() {
+        gameListener = sessionRepository.observeGame(gameDocId, new KoZnaZnaSessionRepository.GameStateListener() {
             @Override
             public void onGameStateChanged(KoZnaZnaSessionRepository.GameState gameState) {
                 runOnUiThread(() -> handleGameState(gameState));
@@ -224,7 +250,7 @@ public class KoZnaZnaActivity extends AppCompatActivity {
         questionRepository.loadQuestions(QUESTION_COUNT, new FirestoreQuizQuestionRepository.LoadQuestionsCallback() {
             @Override
             public void onSuccess(List<QuizQuestion> questions) {
-                sessionRepository.initializeGame(sessionId, sessionInfo, questions,
+                sessionRepository.initializeGame(gameDocId, sessionInfo, questions,
                         new KoZnaZnaSessionRepository.RepositoryCallback() {
                             @Override
                             public void onSuccess() {
@@ -295,7 +321,7 @@ public class KoZnaZnaActivity extends AppCompatActivity {
     }
 
     private void refreshGameStateOnce() {
-        sessionRepository.fetchGameOnce(sessionId, new KoZnaZnaSessionRepository.GameStateListener() {
+        sessionRepository.fetchGameOnce(gameDocId, new KoZnaZnaSessionRepository.GameStateListener() {
             @Override
             public void onGameStateChanged(KoZnaZnaSessionRepository.GameState gameState) {
                 runOnUiThread(() -> handleGameState(gameState));
@@ -334,7 +360,7 @@ public class KoZnaZnaActivity extends AppCompatActivity {
         long answerTimeMs = Math.max(0L, System.currentTimeMillis() - currentQuestionStartedAtMs);
         pendingLocalAnswerIndex = answerIndex;
         pendingLocalAnswerTimeMs = answerTimeMs;
-        sessionRepository.submitAnswer(sessionId, isOwner, answerIndex, answerTimeMs);
+        sessionRepository.submitAnswer(gameDocId, isOwner, answerIndex, answerTimeMs);
         enableAnswerButtons(false);
         tvTurnInfo.setText("Odgovor je poslat. Čekanje protivnika...");
     }
@@ -345,7 +371,7 @@ public class KoZnaZnaActivity extends AppCompatActivity {
         }
 
         if (hasMoreQuestions(currentState)) {
-            sessionRepository.startNextQuestion(sessionId, currentState.currentQuestionIndex + 1,
+            sessionRepository.startNextQuestion(gameDocId, currentState.currentQuestionIndex + 1,
                     new KoZnaZnaSessionRepository.RepositoryCallback() {
                         @Override
                         public void onSuccess() {
@@ -358,11 +384,11 @@ public class KoZnaZnaActivity extends AppCompatActivity {
                     });
         } else {
             String winner = determineWinner(currentState.ownerScore, currentState.guestScore);
-            sessionRepository.finishGame(sessionId, currentState.ownerScore, currentState.guestScore, winner,
+            sessionRepository.finishGame(gameDocId, currentState.ownerScore, currentState.guestScore, winner,
                     new KoZnaZnaSessionRepository.RepositoryCallback() {
                         @Override
                         public void onSuccess() {
-                            if (sessionInfo != null) {
+                            if (countsForStats && sessionInfo != null) {
                                 profileStatsUpdater.recordKoZnaZna(
                                         sessionInfo.ownerId,
                                         sessionInfo.guestId,
@@ -375,6 +401,7 @@ public class KoZnaZnaActivity extends AppCompatActivity {
                                         currentState.guestWrongAnswers
                                 );
                             }
+                            finishPartyGameIfNeeded(currentState.ownerScore, currentState.guestScore);
                         }
 
                         @Override
@@ -418,7 +445,7 @@ public class KoZnaZnaActivity extends AppCompatActivity {
                 gameState.guestAnswerTimeMs
         );
 
-        sessionRepository.publishQuestionResult(sessionId, gameState, result,
+        sessionRepository.publishQuestionResult(gameDocId, gameState, result,
                 new KoZnaZnaSessionRepository.RepositoryCallback() {
                     @Override
                     public void onSuccess() {
@@ -463,6 +490,43 @@ public class KoZnaZnaActivity extends AppCompatActivity {
         btnNextQuestion.setText("Kraj igre");
         tvQuestionCounter.setText("Partija završena");
         tvTurnInfo.setText(buildFinalResultMessage(gameState));
+        if (partyId != null) {
+            btnNextQuestion.setEnabled(true);
+            btnNextQuestion.setText("Nazad u partiju");
+            btnNextQuestion.setOnClickListener(v -> finish());
+        }
+    }
+
+    private void finishPartyGameIfNeeded(int ownerScore, int guestScore) {
+        if (partyId == null || !isOwner) {
+            return;
+        }
+
+        partyRepository.finishGameAndAdvance(partyId, gameKey, ownerScore, guestScore,
+                new PartyRepository.OperationCallback() {
+                    @Override
+                    public void onSuccess() {
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        runOnUiThread(() -> Toast.makeText(KoZnaZnaActivity.this, message, Toast.LENGTH_SHORT).show());
+                    }
+                });
+    }
+
+    private void forfeitParty() {
+        partyRepository.forfeitParty(partyId, currentUserId, new PartyRepository.OperationCallback() {
+            @Override
+            public void onSuccess() {
+                runOnUiThread(() -> finish());
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> Toast.makeText(KoZnaZnaActivity.this, message, Toast.LENGTH_SHORT).show());
+            }
+        });
     }
 
     private void startTimer() {

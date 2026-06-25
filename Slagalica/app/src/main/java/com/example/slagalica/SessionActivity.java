@@ -11,6 +11,8 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.auth.FirebaseManager;
 import com.example.slagalica.auth.SessionManager;
+import com.example.slagalica.party.PartyActivity;
+import com.example.slagalica.party.PartyRepository;
 import com.google.firebase.auth.FirebaseUser;
 
 public class SessionActivity extends AppCompatActivity {
@@ -21,6 +23,7 @@ public class SessionActivity extends AppCompatActivity {
     private Button btnBack;
     private SessionManager sessionManager;
     private FirebaseManager firebaseManager;
+    private PartyRepository partyRepository;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -29,6 +32,7 @@ public class SessionActivity extends AppCompatActivity {
 
         sessionManager = new SessionManager();
         firebaseManager = new FirebaseManager();
+        partyRepository = new PartyRepository();
 
         btnCreateGame = findViewById(R.id.btnCreateGame);
         btnJoinGame = findViewById(R.id.btnJoinGame);
@@ -88,6 +92,12 @@ public class SessionActivity extends AppCompatActivity {
     }
 
     private void createGame() {
+        FirebaseUser registeredUser = firebaseManager.getCurrentUser();
+        if (registeredUser != null && !registeredUser.isAnonymous()) {
+            startRegularMatchmaking(registeredUser);
+            return;
+        }
+
         btnCreateGame.setEnabled(false);
 
         ensureSignedIn(new Runnable() {
@@ -154,6 +164,60 @@ public class SessionActivity extends AppCompatActivity {
                             }
                         });
                     }
+                });
+            }
+        });
+    }
+
+    private void startRegularMatchmaking(FirebaseUser user) {
+        btnCreateGame.setEnabled(false);
+        btnJoinGame.setEnabled(false);
+
+        resolveUsername(user, new FirebaseManager.UserDataCallback() {
+            @Override
+            public void onSuccess(String username, String region) {
+                partyRepository.findRandomOpponentOrWait(user.getUid(), username, new PartyRepository.MatchmakingCallback() {
+                    @Override
+                    public void onPartyReady(String partyId) {
+                        runOnUiThread(() -> {
+                            btnCreateGame.setEnabled(true);
+                            btnJoinGame.setEnabled(true);
+                            Intent intent = new Intent(SessionActivity.this, PartyActivity.class);
+                            intent.putExtra(PartyActivity.EXTRA_PARTY_ID, partyId);
+                            startActivity(intent);
+                            finish();
+                        });
+                    }
+
+                    @Override
+                    public void onWaiting() {
+                        runOnUiThread(() -> {
+                            btnCreateGame.setEnabled(true);
+                            btnJoinGame.setEnabled(true);
+                            Intent intent = new Intent(SessionActivity.this, PartyActivity.class);
+                            intent.putExtra(PartyActivity.EXTRA_QUEUE_WAITING, true);
+                            startActivity(intent);
+                            finish();
+                        });
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        runOnUiThread(() -> {
+                            btnCreateGame.setEnabled(true);
+                            btnJoinGame.setEnabled(true);
+                            Toast.makeText(SessionActivity.this, message, Toast.LENGTH_LONG).show();
+                        });
+                    }
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> {
+                    btnCreateGame.setEnabled(true);
+                    btnJoinGame.setEnabled(true);
+                    Toast.makeText(SessionActivity.this, message, Toast.LENGTH_SHORT).show();
                 });
             }
         });
