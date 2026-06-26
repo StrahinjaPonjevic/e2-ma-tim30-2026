@@ -1,6 +1,9 @@
 package com.example.slagalica;
 
 import com.example.slagalica.auth.FirebaseManager;
+import com.example.slagalica.challenge.ChallengeActivity;
+import com.example.slagalica.chat.ChatActivity;
+import com.example.slagalica.chat.ChatRepository;
 import com.example.slagalica.notifications.NotificationChannelManager;
 import com.example.slagalica.profile.UserProfile;
 import com.example.slagalica.profile.UserProfileRepository;
@@ -40,6 +43,8 @@ public class MainActivity extends AppCompatActivity {
     private Button btnOpenPlayGuest;
     private Button btnOpenProfile;
     private Button btnOpenPlayLoggedIn;
+    private Button btnOpenChat;
+    private Button btnOpenChallenges;
     private TextView tvLoggedInUser;
     private TextView tvTokensStars;
     private FirebaseManager firebaseManager;
@@ -68,6 +73,8 @@ public class MainActivity extends AppCompatActivity {
         btnOpenPlayGuest = findViewById(R.id.btnOpenPlayGuest);
         btnOpenProfile = findViewById(R.id.btnOpenProfile);
         btnOpenPlayLoggedIn = findViewById(R.id.btnOpenPlayLoggedIn);
+        btnOpenChat = findViewById(R.id.btnOpenChat);
+        btnOpenChallenges = findViewById(R.id.btnOpenChallenges);
         tvLoggedInUser = findViewById(R.id.tvLoggedInUser);
         tvTokensStars = findViewById(R.id.tvTokensStars);
 
@@ -93,6 +100,7 @@ public class MainActivity extends AppCompatActivity {
     private void showGuestView() {
         guestSection.setVisibility(View.VISIBLE);
         loggedInSection.setVisibility(View.GONE);
+        ChatRepository.stopNotificationListener();
 
         btnOpenLogin.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, LoginActivity.class)));
         btnOpenRegister.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, RegisterActivity.class)));
@@ -105,9 +113,29 @@ public class MainActivity extends AppCompatActivity {
         tvLoggedInUser.setText("Dobrodosli!");
         tvTokensStars.setText("Ucitavanje profila...");
 
+        profileRepository.grantDailyTokensIfNeeded(user.getUid(), new UserProfileRepository.OperationCallback() {
+            @Override
+            public void onSuccess() {
+                loadProfileForMain(user);
+            }
+
+            @Override
+            public void onError(String message) {
+                loadProfileForMain(user);
+            }
+        });
+
+        btnOpenProfile.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, ProfileActivity.class)));
+        btnOpenPlayLoggedIn.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, SessionActivity.class)));
+        btnOpenChat.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, ChatActivity.class)));
+        btnOpenChallenges.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, ChallengeActivity.class)));
+    }
+
+    private void loadProfileForMain(FirebaseUser user) {
         profileRepository.loadProfile(user.getUid(), new UserProfileRepository.ProfileCallback() {
             @Override
             public void onSuccess(UserProfile profile) {
+                ChatRepository.startNotificationListener(MainActivity.this, profile.region, user.getUid());
                 runOnUiThread(() -> {
                     tvLoggedInUser.setText("Dobrodosli, " + profile.username + "!");
                     tvTokensStars.setText("Tokeni: " + profile.tokens
@@ -125,9 +153,6 @@ public class MainActivity extends AppCompatActivity {
                 });
             }
         });
-
-        btnOpenProfile.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, ProfileActivity.class)));
-        btnOpenPlayLoggedIn.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, SessionActivity.class)));
     }
 
     @Override

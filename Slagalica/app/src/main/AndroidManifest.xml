@@ -53,6 +53,18 @@
             android:name=".WaitingRoomActivity"
             android:exported="false" />
         <activity
+            android:name=".party.PartyActivity"
+            android:exported="false" />
+        <activity
+            android:name=".chat.ChatActivity"
+            android:exported="false" />
+        <activity
+            android:name=".challenge.ChallengeActivity"
+            android:exported="false" />
+        <activity
+            android:name=".challenge.ChallengeDetailActivity"
+            android:exported="false" />
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>

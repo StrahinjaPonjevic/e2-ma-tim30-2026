@@ -15,7 +15,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Igra sa prijateljem"
+            android:text="Regularna partija"
             android:textSize="30sp"
             android:textStyle="bold"
             android:textColor="#1E1E1E"
@@ -25,7 +25,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Kreirajte igru ili se pridružite postojećoj"
+            android:text="Registrovani korisnici igraju random partiju. Kod ispod ostaje debug/practice opcija."
             android:textSize="16sp"
             android:textColor="#666666"
             android:gravity="center"
@@ -35,7 +35,7 @@
             android:id="@+id/btnCreateGame"
             android:layout_width="match_parent"
             android:layout_height="55dp"
-            android:text="Kreiraj igru"
+            android:text="Igraj regularnu partiju"
             android:textAllCaps="false"
             android:textSize="16sp"
             android:layout_marginBottom="24dp" />

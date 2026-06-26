@@ -72,7 +72,17 @@ public class ProfileActivity extends AppCompatActivity {
 
         bindViews();
         bindListeners();
-        loadUserProfile();
+        profileRepository.grantDailyTokensIfNeeded(currentUser.getUid(), new UserProfileRepository.OperationCallback() {
+            @Override
+            public void onSuccess() {
+                loadUserProfile();
+            }
+
+            @Override
+            public void onError(String message) {
+                loadUserProfile();
+            }
+        });
     }
 
     private void bindViews() {

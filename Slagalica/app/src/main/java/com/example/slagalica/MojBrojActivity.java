@@ -18,11 +18,15 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.auth.FirebaseManager;
 import com.example.slagalica.auth.SessionManager;
+import com.example.slagalica.party.PartyData;
+import com.example.slagalica.party.PartyRepository;
 import com.example.slagalica.profile.ProfileStatsUpdater;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -47,17 +51,25 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
     private TextView tvTargetNumber, tvCurrentResult;
     private TextView tvExpressionValue;
     private Button[] numberButtons;
-    private Button btnClearExpression, btnConfirmExpression;
+    private Button btnClearExpression, btnConfirmExpression, btnForfeit;
     private Button[] operatorButtons;
 
     // Firebase
     private FirebaseManager firebaseManager;
     private SessionManager sessionManager;
     private ProfileStatsUpdater profileStatsUpdater;
+    private PartyRepository partyRepository;
     private FirebaseFirestore db;
     private String sessionId;
+    private String partyId;
+    private String gameDocId;
+    private String gameKey;
+    private boolean countsForStats = true;
+    private String currentUserId;
     private boolean isOwner;
-    private com.google.firebase.firestore.ListenerRegistration gameListener;
+    private ListenerRegistration gameListener;
+    private ListenerRegistration partyListener;
+    private boolean returningToParty = false;
 
     // Game state
     private boolean gameInitialized = false;
@@ -95,15 +107,29 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
         setContentView(R.layout.activity_moj_broj);
 
         sessionId = getIntent().getStringExtra("sessionId");
+        partyId = getIntent().getStringExtra("partyId");
+        gameDocId = getIntent().getStringExtra("gameDocId");
+        gameKey = getIntent().getStringExtra("gameKey");
+        countsForStats = getIntent().getBooleanExtra("countsForStats", true);
         isOwner = getIntent().getBooleanExtra("isOwner", true);
+        if (gameDocId == null || gameDocId.trim().isEmpty()) {
+            gameDocId = sessionId;
+        }
+        if (gameKey == null || gameKey.trim().isEmpty()) {
+            gameKey = "moj_broj";
+        }
 
         firebaseManager = new FirebaseManager();
         sessionManager = new SessionManager();
         profileStatsUpdater = new ProfileStatsUpdater();
+        partyRepository = new PartyRepository();
         db = FirebaseFirestore.getInstance();
+        FirebaseUser currentUser = firebaseManager.getCurrentUser();
+        currentUserId = currentUser != null ? currentUser.getUid() : null;
 
         bindViews();
         setupHeader();
+        listenForPartyAdvance();
 
         if (sessionId != null) {
             resolveSessionIds();
@@ -152,6 +178,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
 
         btnClearExpression = findViewById(R.id.btnClearExpression);
         btnConfirmExpression = findViewById(R.id.btnConfirmExpression);
+        btnForfeit = findViewById(R.id.btnForfeit);
 
         bindNumberButtons();
         bindOperatorButtons();
@@ -171,6 +198,13 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
         });
 
         btnConfirmExpression.setEnabled(false);
+        btnForfeit.setOnClickListener(v -> {
+            if (partyId != null) {
+                forfeitParty();
+            } else {
+                finish();
+            }
+        });
 
         setInputEnabled(false);
     }
@@ -226,7 +260,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
     }
 
     private void listenForGameData() {
-        gameListener = db.collection("games").document(sessionId)
+        gameListener = db.collection("games").document(gameDocId)
                 .addSnapshotListener((snapshot, e) -> {
                     if (e != null) {
                         if (!gameInitialized && isOwner) initializeGame();
@@ -279,7 +313,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
                         Map<String, Object> autoUpdates = new HashMap<>();
                         autoUpdates.put("phase", next);
                         autoUpdates.put("phaseStartedAt", FieldValue.serverTimestamp());
-                        db.collection("games").document(sessionId).update(autoUpdates);
+                        db.collection("games").document(gameDocId).update(autoUpdates);
                         cancelLocalTimer();
                     }
 
@@ -294,6 +328,38 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
                         }
                     }
                 });
+    }
+
+    private void listenForPartyAdvance() {
+        if (partyId == null || partyId.trim().isEmpty()) {
+            return;
+        }
+
+        partyListener = partyRepository.listenParty(partyId, new PartyRepository.PartyListener() {
+            @Override
+            public void onPartyChanged(PartyData party) {
+                if (returningToParty) {
+                    return;
+                }
+
+                boolean partyMovedOn = !PartyData.STATUS_IN_PROGRESS.equals(party.status)
+                        || (party.currentGameKey != null && !party.currentGameKey.equals(gameKey));
+                if (!partyMovedOn) {
+                    return;
+                }
+
+                returningToParty = true;
+                runOnUiThread(() -> {
+                    cancelLocalTimer();
+                    finish();
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+                // Game state remains the source of truth while this screen is open.
+            }
+        });
     }
 
     private void initializeGame() {
@@ -322,7 +388,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
         gameData.put("gameFinished", false);
         gameData.put("phaseStartedAt", FieldValue.serverTimestamp());
 
-        db.collection("games").document(sessionId).set(gameData);
+        db.collection("games").document(gameDocId).set(gameData);
     }
 
     private int[] generateNumbers() {
@@ -545,7 +611,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
             Map<String, Object> updates = new HashMap<>();
             updates.put("phase", next);
             updates.put("phaseStartedAt", FieldValue.serverTimestamp());
-            db.collection("games").document(sessionId).update(updates);
+            db.collection("games").document(gameDocId).update(updates);
         }
     }
 
@@ -575,7 +641,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
         } else {
             updates.put("guestResult", result);
         }
-        db.collection("games").document(sessionId).update(updates);
+        db.collection("games").document(gameDocId).update(updates);
 
         if (exact) {
             tvCurrentResult.setText("= " + result + " (pogodak!)");
@@ -622,7 +688,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
             Map<String, Object> updates = new HashMap<>();
             updates.put("phase", next);
             updates.put("phaseStartedAt", FieldValue.serverTimestamp());
-            db.collection("games").document(sessionId).update(updates);
+            db.collection("games").document(gameDocId).update(updates);
             tvTurnInfo.setText("Vreme je isteklo");
         }
     }
@@ -659,7 +725,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
         updates.put("phaseStartedAt", FieldValue.serverTimestamp());
         updates.put("ownerResult", null);
         updates.put("guestResult", null);
-        db.collection("games").document(sessionId).update(updates);
+        db.collection("games").document(gameDocId).update(updates);
     }
 
     private void scoreAndFinishRound2() {
@@ -698,9 +764,9 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
         updates.put("winner", winner);
         updates.put("phase", "finished");
         updates.put("phaseStartedAt", FieldValue.serverTimestamp());
-        db.collection("games").document(sessionId).update(updates)
+        db.collection("games").document(gameDocId).update(updates)
                 .addOnSuccessListener(unused -> {
-                    if (ownerId != null && guestId != null) {
+                    if (countsForStats && ownerId != null && guestId != null) {
                         profileStatsUpdater.recordMojBroj(
                                 ownerId,
                                 guestId,
@@ -711,6 +777,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
                                 guestExactHits + (guestExact ? 1 : 0)
                         );
                     }
+                    finishPartyGameIfNeeded(ownerScore, guestScore);
                 });
     }
 
@@ -731,12 +798,44 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
         }
 
         tvTurnInfo.setText(message);
-        btnConfirmExpression.setText("Zatvori");
-        btnConfirmExpression.setEnabled(true);
+        showConfirmButton(partyId != null ? "Nazad u partiju" : "Zatvori");
+        btnForfeit.setEnabled(false);
         btnConfirmExpression.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 finish();
+            }
+        });
+    }
+
+    private void finishPartyGameIfNeeded(int ownerScore, int guestScore) {
+        if (partyId == null || !isOwner) {
+            return;
+        }
+
+        partyRepository.finishGameAndAdvance(partyId, gameKey, ownerScore, guestScore,
+                new PartyRepository.OperationCallback() {
+                    @Override
+                    public void onSuccess() {
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        runOnUiThread(() -> Toast.makeText(MojBrojActivity.this, message, Toast.LENGTH_SHORT).show());
+                    }
+                });
+    }
+
+    private void forfeitParty() {
+        partyRepository.forfeitParty(partyId, currentUserId, new PartyRepository.OperationCallback() {
+            @Override
+            public void onSuccess() {
+                runOnUiThread(() -> finish());
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> Toast.makeText(MojBrojActivity.this, message, Toast.LENGTH_SHORT).show());
             }
         });
     }
@@ -1073,6 +1172,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
         super.onDestroy();
         cancelLocalTimer();
         if (gameListener != null) gameListener.remove();
+        if (partyListener != null) partyListener.remove();
     }
 
     // ===== INNER CLASS =====

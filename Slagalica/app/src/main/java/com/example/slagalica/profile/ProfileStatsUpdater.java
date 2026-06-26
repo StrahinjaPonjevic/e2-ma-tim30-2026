@@ -104,20 +104,6 @@ public class ProfileStatsUpdater {
     }
 
     private Map<String, Object> buildBaseMatchUpdate(int score, String winner, String side) {
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("matchesPlayed", FieldValue.increment(1));
-        updates.put("tokens", FieldValue.increment(1));
-        updates.put("stars", FieldValue.increment(Math.max(score, 0)));
-
-        if ("draw".equals(winner)) {
-            return updates;
-        }
-
-        if (side.equals(winner)) {
-            updates.put("wins", FieldValue.increment(1));
-        } else {
-            updates.put("losses", FieldValue.increment(1));
-        }
-        return updates;
+        return new HashMap<>();
     }
 }

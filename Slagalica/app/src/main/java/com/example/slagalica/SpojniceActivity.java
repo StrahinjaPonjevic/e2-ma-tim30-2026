@@ -10,6 +10,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.auth.FirebaseManager;
+import com.example.slagalica.party.PartyRepository;
 import com.example.slagalica.profile.ProfileStatsUpdater;
 import com.example.slagalica.spojnice.FirestoreSpojniceRepository;
 import com.example.slagalica.spojnice.SpojniceEvaluator;
@@ -56,9 +57,15 @@ public class SpojniceActivity extends AppCompatActivity {
     private FirestoreSpojniceRepository setRepository;
     private SpojniceSessionRepository sessionRepository;
     private ProfileStatsUpdater profileStatsUpdater;
+    private PartyRepository partyRepository;
 
     private String sessionId;
+    private String partyId;
+    private String gameDocId;
+    private String gameKey;
+    private boolean countsForStats = true;
     private boolean isOwner;
+    private String currentUserId;
     private ListenerRegistration gameListener;
     private CountDownTimer countDownTimer;
 
@@ -78,9 +85,20 @@ public class SpojniceActivity extends AppCompatActivity {
         setRepository = new FirestoreSpojniceRepository();
         sessionRepository = new SpojniceSessionRepository();
         profileStatsUpdater = new ProfileStatsUpdater();
+        partyRepository = new PartyRepository();
 
         sessionId = getIntent().getStringExtra("sessionId");
+        partyId = getIntent().getStringExtra("partyId");
+        gameDocId = getIntent().getStringExtra("gameDocId");
+        gameKey = getIntent().getStringExtra("gameKey");
+        countsForStats = getIntent().getBooleanExtra("countsForStats", true);
         isOwner = getIntent().getBooleanExtra("isOwner", true);
+        if (gameDocId == null || gameDocId.trim().isEmpty()) {
+            gameDocId = sessionId;
+        }
+        if (gameKey == null || gameKey.trim().isEmpty()) {
+            gameKey = "spojnice";
+        }
 
         FirebaseUser currentUser = firebaseManager.getCurrentUser();
         if (currentUser == null || sessionId == null || sessionId.isEmpty()) {
@@ -88,6 +106,7 @@ public class SpojniceActivity extends AppCompatActivity {
             finish();
             return;
         }
+        currentUserId = currentUser.getUid();
 
         bindViews();
         bindListeners();
@@ -135,7 +154,16 @@ public class SpojniceActivity extends AppCompatActivity {
         btnRight5.setOnClickListener(v -> tryMatch(4));
 
         btnNextRound.setOnClickListener(v -> handleNextPhaseClick());
-        btnBack.setOnClickListener(v -> finish());
+        if (partyId != null) {
+            btnBack.setText("Odustani");
+        }
+        btnBack.setOnClickListener(v -> {
+            if (partyId != null) {
+                forfeitParty();
+            } else {
+                finish();
+            }
+        });
     }
 
     private void setupInitialHeader() {
@@ -170,7 +198,7 @@ public class SpojniceActivity extends AppCompatActivity {
     }
 
     private void observeGame() {
-        gameListener = sessionRepository.observeGame(sessionId, new SpojniceSessionRepository.GameStateListener() {
+        gameListener = sessionRepository.observeGame(gameDocId, new SpojniceSessionRepository.GameStateListener() {
             @Override
             public void onGameStateChanged(SpojniceSessionRepository.GameState gameState) {
                 runOnUiThread(() -> handleGameState(gameState));
@@ -217,7 +245,7 @@ public class SpojniceActivity extends AppCompatActivity {
         setRepository.loadSets(2, new FirestoreSpojniceRepository.LoadSetsCallback() {
             @Override
             public void onSuccess(List<SpojniceSet> sets) {
-                sessionRepository.initializeGame(sessionId, sessionInfo, sets,
+                sessionRepository.initializeGame(gameDocId, sessionInfo, sets,
                         new SpojniceSessionRepository.RepositoryCallback() {
                             @Override
                             public void onSuccess() {
@@ -351,7 +379,7 @@ public class SpojniceActivity extends AppCompatActivity {
         phaseAdvanceRequested = "round_result".equals(nextPhase);
 
         sessionRepository.updateAfterMatch(
-                sessionId,
+                gameDocId,
                 nextPhase,
                 ownerScore,
                 guestScore,
@@ -385,7 +413,7 @@ public class SpojniceActivity extends AppCompatActivity {
 
         if (currentState.currentRound == 1) {
             sessionRepository.advancePhase(
-                    sessionId,
+                    gameDocId,
                     "round2_guest_turn",
                     2,
                     currentState.ownerScore,
@@ -407,7 +435,7 @@ public class SpojniceActivity extends AppCompatActivity {
             String winner = determineWinner(currentState.ownerScore, currentState.guestScore);
             String resultMessage = buildFinalResultMessage(currentState.ownerScore, currentState.guestScore, winner);
             sessionRepository.finishGame(
-                    sessionId,
+                    gameDocId,
                     currentState.ownerScore,
                     currentState.guestScore,
                     winner,
@@ -415,7 +443,7 @@ public class SpojniceActivity extends AppCompatActivity {
                     new SpojniceSessionRepository.RepositoryCallback() {
                         @Override
                         public void onSuccess() {
-                            if (sessionInfo != null) {
+                            if (countsForStats && sessionInfo != null) {
                                 profileStatsUpdater.recordSpojnice(
                                         sessionInfo.ownerId,
                                         sessionInfo.guestId,
@@ -428,6 +456,7 @@ public class SpojniceActivity extends AppCompatActivity {
                                         currentState.guestAttemptCount
                                 );
                             }
+                            finishPartyGameIfNeeded(currentState.ownerScore, currentState.guestScore);
                         }
 
                         @Override
@@ -521,7 +550,7 @@ public class SpojniceActivity extends AppCompatActivity {
         }
 
         sessionRepository.updateAfterMatch(
-                sessionId,
+                gameDocId,
                 nextPhase,
                 currentState.ownerScore,
                 currentState.guestScore,
@@ -610,7 +639,7 @@ public class SpojniceActivity extends AppCompatActivity {
     }
 
     private void refreshGameStateOnce() {
-        sessionRepository.fetchGameOnce(sessionId, new SpojniceSessionRepository.GameStateListener() {
+        sessionRepository.fetchGameOnce(gameDocId, new SpojniceSessionRepository.GameStateListener() {
             @Override
             public void onGameStateChanged(SpojniceSessionRepository.GameState gameState) {
                 runOnUiThread(() -> handleGameState(gameState));
@@ -629,9 +658,44 @@ public class SpojniceActivity extends AppCompatActivity {
     private void showFinalResult(SpojniceSessionRepository.GameState gameState) {
         stopTimer();
         setSelectionEnabled(false);
-        btnNextRound.setEnabled(false);
-        btnNextRound.setText("Kraj igre");
+        btnNextRound.setEnabled(partyId != null);
+        btnNextRound.setText(partyId != null ? "Nazad u partiju" : "Kraj igre");
+        if (partyId != null) {
+            btnNextRound.setOnClickListener(v -> finish());
+        }
         tvSelected.setText(buildFinalResultMessage(gameState.ownerScore, gameState.guestScore, gameState.winner));
+    }
+
+    private void finishPartyGameIfNeeded(int ownerScore, int guestScore) {
+        if (partyId == null || !isOwner) {
+            return;
+        }
+
+        partyRepository.finishGameAndAdvance(partyId, gameKey, ownerScore, guestScore,
+                new PartyRepository.OperationCallback() {
+                    @Override
+                    public void onSuccess() {
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        runOnUiThread(() -> Toast.makeText(SpojniceActivity.this, message, Toast.LENGTH_SHORT).show());
+                    }
+                });
+    }
+
+    private void forfeitParty() {
+        partyRepository.forfeitParty(partyId, currentUserId, new PartyRepository.OperationCallback() {
+            @Override
+            public void onSuccess() {
+                runOnUiThread(() -> finish());
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> Toast.makeText(SpojniceActivity.this, message, Toast.LENGTH_SHORT).show());
+            }
+        });
     }
 
     private void updatePlayerNames() {

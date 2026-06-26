@@ -4,9 +4,13 @@ import androidx.annotation.NonNull;
 
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
+import com.google.firebase.Timestamp;
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -60,6 +64,8 @@ public class UserProfileRepository {
         defaults.put("avatarTheme", 0);
         defaults.put("tokens", 5);
         defaults.put("stars", 0);
+        defaults.put("starTokenProgress", 0);
+        defaults.put("lastDailyTokenGrant", null);
         defaults.put("matchesPlayed", 0);
         defaults.put("wins", 0);
         defaults.put("losses", 0);
@@ -96,6 +102,37 @@ public class UserProfileRepository {
                 });
     }
 
+    public void grantDailyTokensIfNeeded(String uid, OperationCallback callback) {
+        DocumentReference userRef = db.collection(USERS_COLLECTION).document(uid);
+        db.runTransaction(transaction -> {
+                    DocumentSnapshot snapshot = transaction.get(userRef);
+                    if (!snapshot.exists()) {
+                        return false;
+                    }
+
+                    Timestamp lastGrant = snapshot.getTimestamp("lastDailyTokenGrant");
+                    if (isToday(lastGrant)) {
+                        return false;
+                    }
+
+                    int stars = intValue(snapshot.get("stars"));
+                    int grant = 5 + leagueBonus(stars);
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("tokens", FieldValue.increment(grant));
+                    updates.put("lastDailyTokenGrant", FieldValue.serverTimestamp());
+                    transaction.update(userRef, updates);
+                    return true;
+                })
+                .addOnSuccessListener(granted -> {
+                    if (callback != null) callback.onSuccess();
+                })
+                .addOnFailureListener(e -> {
+                    if (callback != null) {
+                        callback.onError(e.getMessage() != null ? e.getMessage() : "Greska pri dnevnom token grantu");
+                    }
+                });
+    }
+
     private void notifyCallback(Task<?> task, OperationCallback callback, String fallbackMessage) {
         if (callback == null) {
             return;
@@ -128,7 +165,7 @@ public class UserProfileRepository {
                 valueOrDefault(snapshot.getString("email"), ""),
                 valueOrDefault(snapshot.getString("region"), "Nepoznat region"),
                 intValue(snapshot.get("avatarTheme")),
-                defaultIfZero(intValue(snapshot.get("tokens")), 5),
+                snapshot.contains("tokens") ? intValue(snapshot.get("tokens")) : 5,
                 intValue(snapshot.get("stars")),
                 intValue(snapshot.get("matchesPlayed")),
                 intValue(snapshot.get("wins")),
@@ -168,11 +205,29 @@ public class UserProfileRepository {
         return value instanceof Number ? ((Number) value).intValue() : 0;
     }
 
-    private int defaultIfZero(int value, int fallback) {
-        return value == 0 ? fallback : value;
-    }
-
     private String valueOrDefault(String value, String fallback) {
         return value != null && !value.trim().isEmpty() ? value : fallback;
+    }
+
+    private boolean isToday(Timestamp timestamp) {
+        if (timestamp == null) {
+            return false;
+        }
+
+        Calendar grantDay = Calendar.getInstance();
+        grantDay.setTime(timestamp.toDate());
+        Calendar today = Calendar.getInstance();
+        return grantDay.get(Calendar.YEAR) == today.get(Calendar.YEAR)
+                && grantDay.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR);
+    }
+
+    private int leagueBonus(int stars) {
+        if (stars >= 200) {
+            return 2;
+        }
+        if (stars >= 100) {
+            return 1;
+        }
+        return 0;
     }
 }

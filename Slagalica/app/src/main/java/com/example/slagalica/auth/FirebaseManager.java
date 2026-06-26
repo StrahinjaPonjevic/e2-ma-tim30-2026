@@ -6,6 +6,7 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QuerySnapshot;
 
@@ -103,6 +104,8 @@ public class FirebaseManager {
         userData.put("avatarTheme", 0);
         userData.put("tokens", 5);
         userData.put("stars", 0);
+        userData.put("starTokenProgress", 0);
+        userData.put("lastDailyTokenGrant", FieldValue.serverTimestamp());
         userData.put("matchesPlayed", 0);
         userData.put("wins", 0);
         userData.put("losses", 0);
