@@ -12,6 +12,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.example.slagalica.challenge.ChallengeRepository;
 import com.example.slagalica.party.PartyRepository;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.google.firebase.auth.FirebaseAuth;
@@ -60,10 +61,14 @@ public class AsocijacijeActivity extends AppCompatActivity {
     private CountDownTimer countDownTimer;
     private int timeLeftSeconds;
     private PartyRepository partyRepository;
+    private ChallengeRepository challengeRepository;
     private String partyId;
+    private String challengeId;
     private String gameKey;
     private String currentUserId;
+    private boolean challengeMode = false;
     private boolean gameFinished = false;
+    private boolean challengeScoreSubmitted = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,11 +76,14 @@ public class AsocijacijeActivity extends AppCompatActivity {
         setContentView(R.layout.activity_asocijacije);
 
         partyId = getIntent().getStringExtra("partyId");
+        challengeId = getIntent().getStringExtra("challengeId");
+        challengeMode = getIntent().getBooleanExtra("challengeMode", false);
         gameKey = getIntent().getStringExtra("gameKey");
         if (gameKey == null || gameKey.trim().isEmpty()) {
             gameKey = "asocijacije";
         }
         partyRepository = new PartyRepository();
+        challengeRepository = new ChallengeRepository();
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         currentUserId = currentUser != null ? currentUser.getUid() : null;
 
@@ -225,11 +233,13 @@ public class AsocijacijeActivity extends AppCompatActivity {
             return true;
         });
 
-        if (partyId != null) {
+        if (partyId != null && !challengeMode) {
             btnBack.setText("Odustani");
+        } else if (challengeMode) {
+            btnBack.setText("Nazad u izazov");
         }
         btnBack.setOnClickListener(v -> {
-            if (partyId != null && !gameFinished) {
+            if (partyId != null && !challengeMode && !gameFinished) {
                 forfeitParty();
             } else {
                 finish();
@@ -416,7 +426,12 @@ public class AsocijacijeActivity extends AppCompatActivity {
         etGuess.setEnabled(false);
         btnConfirm.setEnabled(false);
         btnClear.setEnabled(false);
-        btnBack.setText(partyId != null ? "Nazad u partiju" : "Zatvori");
+        btnBack.setText(challengeMode ? "Nazad u izazov" : (partyId != null ? "Nazad u partiju" : "Zatvori"));
+
+        if (challengeMode) {
+            submitChallengeScore(player1Score);
+            return;
+        }
 
         if (partyId == null) {
             Toast.makeText(this, "Kraj igre. Rezultat: " + player1Score, Toast.LENGTH_LONG).show();
@@ -427,13 +442,39 @@ public class AsocijacijeActivity extends AppCompatActivity {
                 new PartyRepository.OperationCallback() {
                     @Override
                     public void onSuccess() {
-                        runOnUiThread(() -> Toast.makeText(AsocijacijeActivity.this,
-                                "Rezultat poslat. Cekanje protivnika ako jos nije zavrsio.",
-                                Toast.LENGTH_LONG).show());
+                        runOnUiThread(() -> {
+                            Toast.makeText(AsocijacijeActivity.this,
+                                    "Rezultat poslat.",
+                                    Toast.LENGTH_SHORT).show();
+                            finish();
+                        });
                     }
 
                     @Override
                     public void onError(String message) {
+                        runOnUiThread(() -> Toast.makeText(AsocijacijeActivity.this, message, Toast.LENGTH_SHORT).show());
+                    }
+                });
+    }
+
+    private void submitChallengeScore(int score) {
+        if (challengeScoreSubmitted || challengeId == null || currentUserId == null) {
+            return;
+        }
+        challengeScoreSubmitted = true;
+        challengeRepository.submitGameScore(challengeId, currentUserId, gameKey, score,
+                new ChallengeRepository.OperationCallback() {
+                    @Override
+                    public void onSuccess() {
+                        runOnUiThread(() -> {
+                            Toast.makeText(AsocijacijeActivity.this, "Rezultat izazova je sacuvan.", Toast.LENGTH_SHORT).show();
+                            finish();
+                        });
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        challengeScoreSubmitted = false;
                         runOnUiThread(() -> Toast.makeText(AsocijacijeActivity.this, message, Toast.LENGTH_SHORT).show());
                     }
                 });

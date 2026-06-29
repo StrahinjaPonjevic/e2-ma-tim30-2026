@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.auth.FirebaseManager;
 import com.example.slagalica.auth.SessionManager;
+import com.example.slagalica.challenge.ChallengeRepository;
 import com.example.slagalica.party.PartyRepository;
 import com.example.slagalica.profile.ProfileStatsUpdater;
 import com.google.firebase.auth.FirebaseUser;
@@ -44,13 +45,16 @@ public class KorakPoKorakActivity extends AppCompatActivity {
     private SessionManager sessionManager;
     private ProfileStatsUpdater profileStatsUpdater;
     private PartyRepository partyRepository;
+    private ChallengeRepository challengeRepository;
     private KPKFirestoreRepository kpkRepository;
     private FirebaseFirestore db;
     private String sessionId;
     private String partyId;
+    private String challengeId;
     private String gameDocId;
     private String gameKey;
     private boolean countsForStats = true;
+    private boolean challengeMode = false;
     private String currentUserId;
     private boolean isOwner;
     private boolean gameInitialized = false;
@@ -69,6 +73,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
     private boolean isMyTurn = false;
     private boolean isStealTurn = false;
     private boolean gameFinished = false;
+    private boolean challengeScoreSubmitted = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -77,9 +82,11 @@ public class KorakPoKorakActivity extends AppCompatActivity {
 
         sessionId = getIntent().getStringExtra("sessionId");
         partyId = getIntent().getStringExtra("partyId");
+        challengeId = getIntent().getStringExtra("challengeId");
         gameDocId = getIntent().getStringExtra("gameDocId");
         gameKey = getIntent().getStringExtra("gameKey");
         countsForStats = getIntent().getBooleanExtra("countsForStats", true);
+        challengeMode = getIntent().getBooleanExtra("challengeMode", false);
         isOwner = getIntent().getBooleanExtra("isOwner", true);
         if (gameDocId == null || gameDocId.trim().isEmpty()) {
             gameDocId = sessionId;
@@ -92,6 +99,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
         sessionManager = new SessionManager();
         profileStatsUpdater = new ProfileStatsUpdater();
         partyRepository = new PartyRepository();
+        challengeRepository = new ChallengeRepository();
         kpkRepository = new KPKFirestoreRepository();
         db = FirebaseFirestore.getInstance();
         FirebaseUser currentUser = firebaseManager.getCurrentUser();
@@ -145,8 +153,10 @@ public class KorakPoKorakActivity extends AppCompatActivity {
         etAnswer = findViewById(R.id.etAnswer);
         btnConfirmAnswer = findViewById(R.id.btnConfirmAnswer);
         btnForfeit = findViewById(R.id.btnForfeit);
-        if (partyId != null) {
+        if (partyId != null && !challengeMode) {
             btnForfeit.setText("Odustani");
+        } else if (challengeMode) {
+            btnForfeit.setText("Nazad u izazov");
         }
 
         btnConfirmAnswer.setOnClickListener(new View.OnClickListener() {
@@ -333,7 +343,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
                 break;
 
             case "guest_steal":
-                if (!ownerIsMe) {
+                if (!ownerIsMe || challengeMode) {
                     tvTurnInfo.setText("Krađa! Pogodi za 5 bodova!");
                     enableAnswerInput(true);
                     isMyTurn = true;
@@ -583,7 +593,11 @@ public class KorakPoKorakActivity extends AppCompatActivity {
         String currentPhase = this.currentPhase;
         String nextPhase = null;
 
-        if ("owner_playing".equals(currentPhase)) {
+        if (challengeMode && "owner_playing".equals(currentPhase)) {
+            nextPhase = "round1_done";
+        } else if (challengeMode && "guest_playing".equals(currentPhase)) {
+            nextPhase = "round2_done";
+        } else if ("owner_playing".equals(currentPhase)) {
             nextPhase = "guest_steal";
         } else if ("guest_steal".equals(currentPhase)) {
             nextPhase = "round1_done";
@@ -656,11 +670,19 @@ public class KorakPoKorakActivity extends AppCompatActivity {
         }
 
         tvTurnInfo.setText(message);
-        btnForfeit.setText(partyId != null ? "Nazad u partiju" : "Zatvori");
+        btnForfeit.setText(challengeMode ? "Nazad u izazov" : (partyId != null ? "Nazad u partiju" : "Zatvori"));
         btnForfeit.setOnClickListener(v -> finish());
+        if (challengeMode) {
+            submitChallengeScore(ownerScore);
+        }
     }
 
     private void forfeitGame() {
+        if (challengeMode) {
+            finish();
+            return;
+        }
+
         if (partyId != null) {
             partyRepository.forfeitParty(partyId, currentUserId, new PartyRepository.OperationCallback() {
                 @Override
@@ -699,10 +721,34 @@ public class KorakPoKorakActivity extends AppCompatActivity {
                 new PartyRepository.OperationCallback() {
                     @Override
                     public void onSuccess() {
+                        runOnUiThread(() -> finish());
                     }
 
                     @Override
                     public void onError(String message) {
+                        runOnUiThread(() -> Toast.makeText(KorakPoKorakActivity.this, message, Toast.LENGTH_SHORT).show());
+                    }
+                });
+    }
+
+    private void submitChallengeScore(int score) {
+        if (challengeScoreSubmitted || challengeId == null || currentUserId == null) {
+            return;
+        }
+        challengeScoreSubmitted = true;
+        challengeRepository.submitGameScore(challengeId, currentUserId, gameKey, score,
+                new ChallengeRepository.OperationCallback() {
+                    @Override
+                    public void onSuccess() {
+                        runOnUiThread(() -> {
+                            Toast.makeText(KorakPoKorakActivity.this, "Rezultat izazova je sacuvan.", Toast.LENGTH_SHORT).show();
+                            finish();
+                        });
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        challengeScoreSubmitted = false;
                         runOnUiThread(() -> Toast.makeText(KorakPoKorakActivity.this, message, Toast.LENGTH_SHORT).show());
                     }
                 });

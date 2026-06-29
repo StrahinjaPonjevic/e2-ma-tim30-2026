@@ -18,6 +18,7 @@ public class ChallengeRepository {
 
     private static final String CHALLENGES = "challenges";
     private static final String USERS = "users";
+    private static final String SESSIONS = "sessions";
 
     private final FirebaseFirestore db;
 
@@ -102,6 +103,9 @@ public class ChallengeRepository {
                     challenge.put("status", ChallengeData.STATUS_OPEN);
                     challenge.put("participants", participants);
                     challenge.put("scores", new HashMap<String, Object>());
+                    Map<String, Object> runs = new HashMap<>();
+                    runs.put(creatorId, defaultRunMap());
+                    challenge.put("runs", runs);
                     challenge.put("winnerId", null);
                     challenge.put("secondPlaceId", null);
                     challenge.put("createdAt", FieldValue.serverTimestamp());
@@ -142,6 +146,7 @@ public class ChallengeRepository {
                             "tokens", FieldValue.increment(-challenge.tokensStake));
                     transaction.update(challengeRef,
                             "participants." + uid, username,
+                            "runs." + uid, defaultRunMap(),
                             "updatedAt", FieldValue.serverTimestamp());
                     return null;
                 })
@@ -166,16 +171,46 @@ public class ChallengeRepository {
                     if (challenge.participants.size() < 2) {
                         throw abort("Potrebna su bar 2 ucesnika");
                     }
-                    transaction.update(challengeRef,
-                            "status", ChallengeData.STATUS_IN_PROGRESS,
-                            "updatedAt", FieldValue.serverTimestamp());
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("status", ChallengeData.STATUS_IN_PROGRESS);
+                    updates.put("updatedAt", FieldValue.serverTimestamp());
+                    for (String participantId : challenge.participants.keySet()) {
+                        if (!challenge.runs.containsKey(participantId)) {
+                            updates.put("runs." + participantId, defaultRunMap());
+                        }
+                    }
+                    transaction.update(challengeRef, updates);
                     return null;
                 })
                 .addOnSuccessListener(unused -> callback.onSuccess())
                 .addOnFailureListener(e -> callback.onError(messageOf(e, "Start izazova nije uspeo")));
     }
 
-    public void submitScore(String challengeId, String uid, int score, OperationCallback callback) {
+    public void prepareGameSession(String challengeId, String uid, String username, String gameKey,
+                                   OperationCallback callback) {
+        Map<String, Object> session = new HashMap<>();
+        session.put("ownerId", uid);
+        session.put("ownerUsername", username != null && !username.trim().isEmpty() ? username : "Igrac");
+        session.put("guestId", "challenge");
+        session.put("guestUsername", "Izazov");
+        session.put("status", "joined");
+        session.put("code", "");
+        session.put("selectedGame", gameKey);
+        session.put("createdAt", FieldValue.serverTimestamp());
+        session.put("updatedAt", FieldValue.serverTimestamp());
+
+        db.collection(SESSIONS).document(challengeGameDocId(challengeId, uid, gameKey))
+                .set(session)
+                .addOnSuccessListener(unused -> {
+                    if (callback != null) callback.onSuccess();
+                })
+                .addOnFailureListener(e -> {
+                    if (callback != null) callback.onError(messageOf(e, "Priprema igre nije uspela"));
+                });
+    }
+
+    public void submitGameScore(String challengeId, String uid, String gameKey, int score,
+                                OperationCallback callback) {
         DocumentReference challengeRef = db.collection(CHALLENGES).document(challengeId);
         db.runTransaction(transaction -> {
                     DocumentSnapshot snapshot = transaction.get(challengeRef);
@@ -189,17 +224,43 @@ public class ChallengeRepository {
                     if (!challenge.hasParticipant(uid)) {
                         throw abort("Niste ucesnik izazova");
                     }
-                    if (challenge.hasScore(uid)) {
+                    Map<String, Object> run = challenge.runFor(uid);
+                    if ("completed".equals(run.get("status"))) {
                         return null;
                     }
 
+                    int currentGameIndex = intValue(run.get("currentGameIndex"));
+                    if (currentGameIndex < 0 || currentGameIndex >= ChallengeData.GAME_KEYS.length) {
+                        throw abort("Tok izazova nije ispravan");
+                    }
+                    String expectedGameKey = ChallengeData.GAME_KEYS[currentGameIndex];
+                    if (!expectedGameKey.equals(gameKey)) {
+                        throw abort("Najpre odigrajte trenutnu igru izazova");
+                    }
+
+                    Map<String, Object> gameScores = nestedMap(run.get("gameScores"));
+                    if (gameScores.get(gameKey) instanceof Number) {
+                        return null;
+                    }
+
+                    int newTotal = intValue(run.get("totalScore")) + Math.max(0, score);
+                    boolean completed = currentGameIndex >= ChallengeData.GAME_KEYS.length - 1;
+                    int nextGameIndex = completed ? ChallengeData.GAME_KEYS.length : currentGameIndex + 1;
+
                     Map<String, Object> updates = new HashMap<>();
-                    updates.put("scores." + uid, score);
+                    updates.put("runs." + uid + ".gameScores." + gameKey, Math.max(0, score));
+                    updates.put("runs." + uid + ".totalScore", newTotal);
+                    updates.put("runs." + uid + ".currentGameIndex", nextGameIndex);
+                    updates.put("runs." + uid + ".status", completed ? "completed" : ChallengeData.STATUS_IN_PROGRESS);
                     updates.put("updatedAt", FieldValue.serverTimestamp());
 
                     Map<String, Object> mergedScores = new HashMap<>(challenge.scores);
-                    mergedScores.put(uid, score);
-                    if (mergedScores.size() == challenge.participants.size()) {
+                    if (completed) {
+                        updates.put("scores." + uid, newTotal);
+                        mergedScores.put(uid, newTotal);
+                    }
+
+                    if (completed && allParticipantsCompleted(challenge, uid, newTotal)) {
                         Winners winners = resolveWinners(mergedScores);
                         updates.put("status", ChallengeData.STATUS_FINISHED);
                         updates.put("winnerId", winners.winnerId);
@@ -212,6 +273,10 @@ public class ChallengeRepository {
                 })
                 .addOnSuccessListener(unused -> callback.onSuccess())
                 .addOnFailureListener(e -> callback.onError(messageOf(e, "Predaja rezultata nije uspela")));
+    }
+
+    public void submitScore(String challengeId, String uid, int score, OperationCallback callback) {
+        submitGameScore(challengeId, uid, ChallengeData.GAME_KEYS[ChallengeData.GAME_KEYS.length - 1], score, callback);
     }
 
     private void applyPayouts(com.google.firebase.firestore.Transaction transaction,
@@ -245,6 +310,39 @@ public class ChallengeRepository {
         winners.winnerId = entries.get(0).getKey();
         winners.secondPlaceId = entries.size() > 1 ? entries.get(1).getKey() : null;
         return winners;
+    }
+
+    private boolean allParticipantsCompleted(ChallengeData challenge, String submittedUid, int submittedTotal) {
+        for (String participantId : challenge.participants.keySet()) {
+            if (participantId.equals(submittedUid)) {
+                continue;
+            }
+            if (!challenge.hasCompletedRun(participantId)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private Map<String, Object> defaultRunMap() {
+        Map<String, Object> run = new HashMap<>();
+        run.put("currentGameIndex", 0);
+        run.put("totalScore", 0);
+        run.put("status", ChallengeData.STATUS_IN_PROGRESS);
+        run.put("gameScores", new HashMap<String, Object>());
+        return run;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> nestedMap(Object raw) {
+        if (raw instanceof Map) {
+            return new HashMap<>((Map<String, Object>) raw);
+        }
+        return new HashMap<>();
+    }
+
+    private String challengeGameDocId(String challengeId, String uid, String gameKey) {
+        return challengeId + "_" + uid + "_" + gameKey;
     }
 
     private boolean validStake(int starsStake, int tokensStake, CreateCallback callback) {

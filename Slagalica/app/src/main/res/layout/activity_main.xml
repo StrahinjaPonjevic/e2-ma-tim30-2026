@@ -119,6 +119,15 @@
                 android:textSize="16sp" />
 
             <Button
+                android:id="@+id/btnOpenFriendly"
+                android:layout_width="match_parent"
+                android:layout_height="55dp"
+                android:layout_marginBottom="16dp"
+                android:text="Prijateljska partija"
+                android:textAllCaps="false"
+                android:textSize="16sp" />
+
+            <Button
                 android:id="@+id/btnOpenChat"
                 android:layout_width="match_parent"
                 android:layout_height="55dp"

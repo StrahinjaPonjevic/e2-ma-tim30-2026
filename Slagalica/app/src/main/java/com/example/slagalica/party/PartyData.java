@@ -40,6 +40,8 @@ public class PartyData {
     public Map<String, Object> gameScores;
     public String winner;
     public String forfeitedBy;
+    public boolean ownerForfeited;
+    public boolean guestForfeited;
     public boolean countsForStats;
     public boolean usesTokens;
     public boolean rewardApplied;
@@ -63,6 +65,8 @@ public class PartyData {
         data.gameScores = rawScores instanceof Map ? new HashMap<>((Map<String, Object>) rawScores) : new HashMap<>();
         data.winner = snapshot.getString("winner");
         data.forfeitedBy = snapshot.getString("forfeitedBy");
+        data.ownerForfeited = Boolean.TRUE.equals(snapshot.getBoolean("ownerForfeited"));
+        data.guestForfeited = Boolean.TRUE.equals(snapshot.getBoolean("guestForfeited"));
         data.countsForStats = !Boolean.FALSE.equals(snapshot.getBoolean("countsForStats"));
         data.usesTokens = !Boolean.FALSE.equals(snapshot.getBoolean("usesTokens"));
         data.rewardApplied = Boolean.TRUE.equals(snapshot.getBoolean("rewardApplied"));
@@ -105,6 +109,20 @@ public class PartyData {
 
     public boolean isOwner(String uid) {
         return uid != null && uid.equals(ownerId);
+    }
+
+    public boolean hasForfeit() {
+        return ownerForfeited || guestForfeited || forfeitedBy != null;
+    }
+
+    public boolean hasCurrentUserForfeited(String uid) {
+        if (uid != null && uid.equals(ownerId)) {
+            return ownerForfeited;
+        }
+        if (uid != null && uid.equals(guestId)) {
+            return guestForfeited;
+        }
+        return false;
     }
 
     public static String displayNameForGame(String gameKey) {

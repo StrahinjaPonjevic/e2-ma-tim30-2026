@@ -190,8 +190,17 @@ public class PartyActivity extends AppCompatActivity {
         if (PartyData.STATUS_IN_PROGRESS.equals(party.status)) {
             tvCurrentGame.setText("Igra " + (party.currentGameIndex + 1) + "/"
                     + PartyData.GAME_KEYS.length + ": " + PartyData.displayNameForGame(party.currentGameKey));
-            btnForfeit.setEnabled(true);
-            btnForfeit.setText("Odustani");
+            if (party.hasCurrentUserForfeited(currentUser.getUid())) {
+                btnForfeit.setEnabled(false);
+                btnPrimary.setEnabled(false);
+                btnPrimary.setText("Partija se nastavlja bez vas");
+                tvStatus.setText("Odustali ste. Protivnik nastavlja partiju.");
+                return;
+            }
+
+            btnForfeit.setEnabled(!party.hasForfeit());
+            btnForfeit.setText(party.hasForfeit() ? "Protivnik je odustao" : "Odustani");
+            btnPrimary.setEnabled(true);
             btnPrimary.setText("Nastavi igru");
 
             if (isSoloSubmittedAndWaiting(party)) {
@@ -199,7 +208,9 @@ public class PartyActivity extends AppCompatActivity {
                 return;
             }
 
-            tvStatus.setText("Pokretanje trenutne igre...");
+            tvStatus.setText(party.hasForfeit()
+                    ? "Protivnik je odustao. Nastavljate partiju bez cekanja."
+                    : "Pokretanje trenutne igre...");
             openCurrentGame(party);
             return;
         }
@@ -243,9 +254,20 @@ public class PartyActivity extends AppCompatActivity {
         intent.putExtra("gameDocId", gameDocId);
         intent.putExtra("gameKey", party.currentGameKey);
         intent.putExtra("partyType", party.type);
-        intent.putExtra("countsForStats", party.countsForStats);
-        intent.putExtra("isOwner", party.isOwner(currentUser.getUid()));
+        intent.putExtra("countsForStats", party.countsForStats && !party.hasForfeit());
+        intent.putExtra("isOwner", resolvePlayAsOwner(party));
         startActivity(intent);
+    }
+
+    private boolean resolvePlayAsOwner(PartyData party) {
+        boolean currentUserIsOwner = party.isOwner(currentUser.getUid());
+        if (party.ownerForfeited && currentUser.getUid().equals(party.guestId)) {
+            return true;
+        }
+        if (party.guestForfeited && currentUserIsOwner) {
+            return true;
+        }
+        return currentUserIsOwner;
     }
 
     private Class<?> activityForGame(String gameKey) {

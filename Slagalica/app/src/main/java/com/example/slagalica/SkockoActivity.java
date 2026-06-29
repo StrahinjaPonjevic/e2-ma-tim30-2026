@@ -9,6 +9,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import android.widget.Toast;
 
+import com.example.slagalica.challenge.ChallengeRepository;
 import com.example.slagalica.party.PartyRepository;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.google.firebase.auth.FirebaseAuth;
@@ -60,10 +61,14 @@ public class SkockoActivity extends AppCompatActivity {
     private TextView tvRoundLabel, tvPlayer1Score, tvPlayer2Score;
     private Button btnBack;
     private PartyRepository partyRepository;
+    private ChallengeRepository challengeRepository;
     private String partyId;
+    private String challengeId;
     private String gameKey;
     private String currentUserId;
+    private boolean challengeMode = false;
     private boolean gameFinished = false;
+    private boolean challengeScoreSubmitted = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,11 +76,14 @@ public class SkockoActivity extends AppCompatActivity {
         setContentView(R.layout.activity_skocko);
 
         partyId = getIntent().getStringExtra("partyId");
+        challengeId = getIntent().getStringExtra("challengeId");
+        challengeMode = getIntent().getBooleanExtra("challengeMode", false);
         gameKey = getIntent().getStringExtra("gameKey");
         if (gameKey == null || gameKey.trim().isEmpty()) {
             gameKey = "skocko";
         }
         partyRepository = new PartyRepository();
+        challengeRepository = new ChallengeRepository();
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         currentUserId = currentUser != null ? currentUser.getUid() : null;
 
@@ -124,11 +132,13 @@ public class SkockoActivity extends AppCompatActivity {
         findViewById(R.id.btnConfirm).setOnClickListener(v -> confirmGuess());
         findViewById(R.id.btnClear).setOnClickListener(v -> clearLastSymbol());
         btnBack = findViewById(R.id.btnBack);
-        if (partyId != null) {
+        if (partyId != null && !challengeMode) {
             btnBack.setText("Odustani");
+        } else if (challengeMode) {
+            btnBack.setText("Nazad u izazov");
         }
         btnBack.setOnClickListener(v -> {
-            if (partyId != null && !gameFinished) {
+            if (partyId != null && !challengeMode && !gameFinished) {
                 forfeitParty();
             } else {
                 finish();
@@ -296,9 +306,14 @@ public class SkockoActivity extends AppCompatActivity {
 
         gameFinished = true;
         stopTimer();
-        btnBack.setText(partyId != null ? "Nazad u partiju" : "Zatvori");
+        btnBack.setText(challengeMode ? "Nazad u izazov" : (partyId != null ? "Nazad u partiju" : "Zatvori"));
 
         int totalScore = player1Score + player2Score;
+        if (challengeMode) {
+            submitChallengeScore(totalScore);
+            return;
+        }
+
         if (partyId == null) {
             Toast.makeText(this, "Kraj igre. Rezultat: " + totalScore, Toast.LENGTH_LONG).show();
             return;
@@ -308,13 +323,39 @@ public class SkockoActivity extends AppCompatActivity {
                 new PartyRepository.OperationCallback() {
                     @Override
                     public void onSuccess() {
-                        runOnUiThread(() -> Toast.makeText(SkockoActivity.this,
-                                "Rezultat poslat. Cekanje protivnika ako jos nije zavrsio.",
-                                Toast.LENGTH_LONG).show());
+                        runOnUiThread(() -> {
+                            Toast.makeText(SkockoActivity.this,
+                                    "Rezultat poslat.",
+                                    Toast.LENGTH_SHORT).show();
+                            finish();
+                        });
                     }
 
                     @Override
                     public void onError(String message) {
+                        runOnUiThread(() -> Toast.makeText(SkockoActivity.this, message, Toast.LENGTH_SHORT).show());
+                    }
+                });
+    }
+
+    private void submitChallengeScore(int score) {
+        if (challengeScoreSubmitted || challengeId == null || currentUserId == null) {
+            return;
+        }
+        challengeScoreSubmitted = true;
+        challengeRepository.submitGameScore(challengeId, currentUserId, gameKey, score,
+                new ChallengeRepository.OperationCallback() {
+                    @Override
+                    public void onSuccess() {
+                        runOnUiThread(() -> {
+                            Toast.makeText(SkockoActivity.this, "Rezultat izazova je sacuvan.", Toast.LENGTH_SHORT).show();
+                            finish();
+                        });
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        challengeScoreSubmitted = false;
                         runOnUiThread(() -> Toast.makeText(SkockoActivity.this, message, Toast.LENGTH_SHORT).show());
                     }
                 });

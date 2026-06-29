@@ -10,6 +10,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.auth.FirebaseManager;
+import com.example.slagalica.challenge.ChallengeRepository;
 import com.example.slagalica.koznazna.FirestoreQuizQuestionRepository;
 import com.example.slagalica.koznazna.KoZnaZnaEvaluator;
 import com.example.slagalica.koznazna.KoZnaZnaSessionRepository;
@@ -50,12 +51,15 @@ public class KoZnaZnaActivity extends AppCompatActivity {
     private KoZnaZnaSessionRepository sessionRepository;
     private ProfileStatsUpdater profileStatsUpdater;
     private PartyRepository partyRepository;
+    private ChallengeRepository challengeRepository;
 
     private String sessionId;
     private String partyId;
+    private String challengeId;
     private String gameDocId;
     private String gameKey;
     private boolean countsForStats = true;
+    private boolean challengeMode = false;
     private boolean isOwner;
     private String currentUserId;
     private ListenerRegistration gameListener;
@@ -70,6 +74,7 @@ public class KoZnaZnaActivity extends AppCompatActivity {
     private Integer pendingLocalAnswerIndex;
     private Long pendingLocalAnswerTimeMs;
     private boolean waitingForGameRetryScheduled = false;
+    private boolean challengeScoreSubmitted = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -81,12 +86,15 @@ public class KoZnaZnaActivity extends AppCompatActivity {
         sessionRepository = new KoZnaZnaSessionRepository();
         profileStatsUpdater = new ProfileStatsUpdater();
         partyRepository = new PartyRepository();
+        challengeRepository = new ChallengeRepository();
 
         sessionId = getIntent().getStringExtra("sessionId");
         partyId = getIntent().getStringExtra("partyId");
+        challengeId = getIntent().getStringExtra("challengeId");
         gameDocId = getIntent().getStringExtra("gameDocId");
         gameKey = getIntent().getStringExtra("gameKey");
         countsForStats = getIntent().getBooleanExtra("countsForStats", true);
+        challengeMode = getIntent().getBooleanExtra("challengeMode", false);
         isOwner = getIntent().getBooleanExtra("isOwner", true);
         if (gameDocId == null || gameDocId.trim().isEmpty()) {
             gameDocId = sessionId;
@@ -137,11 +145,13 @@ public class KoZnaZnaActivity extends AppCompatActivity {
         btnAnswerD.setOnClickListener(v -> submitAnswer(3));
 
         btnNextQuestion.setOnClickListener(v -> handleNextQuestionClick());
-        if (partyId != null) {
+        if (partyId != null && !challengeMode) {
             btnBack.setText("Odustani");
+        } else if (challengeMode) {
+            btnBack.setText("Nazad u izazov");
         }
         btnBack.setOnClickListener(v -> {
-            if (partyId != null) {
+            if (partyId != null && !challengeMode) {
                 forfeitParty();
             } else {
                 finish();
@@ -490,7 +500,12 @@ public class KoZnaZnaActivity extends AppCompatActivity {
         btnNextQuestion.setText("Kraj igre");
         tvQuestionCounter.setText("Partija završena");
         tvTurnInfo.setText(buildFinalResultMessage(gameState));
-        if (partyId != null) {
+        if (challengeMode) {
+            btnNextQuestion.setEnabled(true);
+            btnNextQuestion.setText("Nazad u izazov");
+            btnNextQuestion.setOnClickListener(v -> finish());
+            submitChallengeScore(gameState.ownerScore);
+        } else if (partyId != null) {
             btnNextQuestion.setEnabled(true);
             btnNextQuestion.setText("Nazad u partiju");
             btnNextQuestion.setOnClickListener(v -> finish());
@@ -506,10 +521,34 @@ public class KoZnaZnaActivity extends AppCompatActivity {
                 new PartyRepository.OperationCallback() {
                     @Override
                     public void onSuccess() {
+                        runOnUiThread(() -> finish());
                     }
 
                     @Override
                     public void onError(String message) {
+                        runOnUiThread(() -> Toast.makeText(KoZnaZnaActivity.this, message, Toast.LENGTH_SHORT).show());
+                    }
+                });
+    }
+
+    private void submitChallengeScore(int score) {
+        if (challengeScoreSubmitted || challengeId == null || currentUserId == null) {
+            return;
+        }
+        challengeScoreSubmitted = true;
+        challengeRepository.submitGameScore(challengeId, currentUserId, gameKey, score,
+                new ChallengeRepository.OperationCallback() {
+                    @Override
+                    public void onSuccess() {
+                        runOnUiThread(() -> {
+                            Toast.makeText(KoZnaZnaActivity.this, "Rezultat izazova je sacuvan.", Toast.LENGTH_SHORT).show();
+                            finish();
+                        });
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        challengeScoreSubmitted = false;
                         runOnUiThread(() -> Toast.makeText(KoZnaZnaActivity.this, message, Toast.LENGTH_SHORT).show());
                     }
                 });

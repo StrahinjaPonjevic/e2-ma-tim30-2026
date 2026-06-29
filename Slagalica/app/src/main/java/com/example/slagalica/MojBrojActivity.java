@@ -18,6 +18,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.auth.FirebaseManager;
 import com.example.slagalica.auth.SessionManager;
+import com.example.slagalica.challenge.ChallengeRepository;
 import com.example.slagalica.party.PartyData;
 import com.example.slagalica.party.PartyRepository;
 import com.example.slagalica.profile.ProfileStatsUpdater;
@@ -59,12 +60,15 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
     private SessionManager sessionManager;
     private ProfileStatsUpdater profileStatsUpdater;
     private PartyRepository partyRepository;
+    private ChallengeRepository challengeRepository;
     private FirebaseFirestore db;
     private String sessionId;
     private String partyId;
+    private String challengeId;
     private String gameDocId;
     private String gameKey;
     private boolean countsForStats = true;
+    private boolean challengeMode = false;
     private String currentUserId;
     private boolean isOwner;
     private ListenerRegistration gameListener;
@@ -88,6 +92,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
     private int guestExactHits = 0;
     private boolean isMyTurn = false;
     private boolean submittedThisRound = false;
+    private boolean challengeScoreSubmitted = false;
 
     // Timers
     private CountDownTimer countDownTimer;
@@ -108,9 +113,11 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
 
         sessionId = getIntent().getStringExtra("sessionId");
         partyId = getIntent().getStringExtra("partyId");
+        challengeId = getIntent().getStringExtra("challengeId");
         gameDocId = getIntent().getStringExtra("gameDocId");
         gameKey = getIntent().getStringExtra("gameKey");
         countsForStats = getIntent().getBooleanExtra("countsForStats", true);
+        challengeMode = getIntent().getBooleanExtra("challengeMode", false);
         isOwner = getIntent().getBooleanExtra("isOwner", true);
         if (gameDocId == null || gameDocId.trim().isEmpty()) {
             gameDocId = sessionId;
@@ -123,6 +130,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
         sessionManager = new SessionManager();
         profileStatsUpdater = new ProfileStatsUpdater();
         partyRepository = new PartyRepository();
+        challengeRepository = new ChallengeRepository();
         db = FirebaseFirestore.getInstance();
         FirebaseUser currentUser = firebaseManager.getCurrentUser();
         currentUserId = currentUser != null ? currentUser.getUid() : null;
@@ -199,7 +207,9 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
 
         btnConfirmExpression.setEnabled(false);
         btnForfeit.setOnClickListener(v -> {
-            if (partyId != null) {
+            if (challengeMode) {
+                finish();
+            } else if (partyId != null) {
                 forfeitParty();
             } else {
                 finish();
@@ -308,7 +318,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
 
                     if (isOwner && !gameFinished && currentPhase != null
                             && (currentPhase.endsWith("r1_play") || currentPhase.endsWith("r2_play"))
-                            && ownerResult != null && guestResult != null) {
+                            && ownerResult != null && (guestResult != null || challengeMode)) {
                         String next = currentPhase.equals("r1_play") ? "r1_end" : "r2_end";
                         Map<String, Object> autoUpdates = new HashMap<>();
                         autoUpdates.put("phase", next);
@@ -514,7 +524,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
                 resetNumberButtonsText();
                 resetExpression();
                 tvCurrentResult.setText("= ---");
-                if (!isOwner) {
+                if (!isOwner || challengeMode) {
                     tvTurnInfo.setText("Pritisnite STOP za otkrivanje brojeva");
                     setInputEnabled(false);
                     showStopButton();
@@ -529,7 +539,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
 
             case "r2_target":
                 tvTargetNumber.setText("Tra\u017eeni broj: " + targetRound2);
-                if (!isOwner) {
+                if (!isOwner || challengeMode) {
                     tvTurnInfo.setText("Pritisnite STOP za brojeve (ili " + AUTO_REVEAL_DELAY + "s)");
                     showStopButton();
                     isMyTurn = true;
@@ -542,7 +552,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
 
             case "r2_numbers":
                 setNumbersOnButtons(numbersRound2);
-                if (!isOwner) {
+                if (!isOwner || challengeMode) {
                     tvTurnInfo.setText("Pritisnite STOP za po\u010detak (ili " + AUTO_REVEAL_DELAY + "s)");
                     showStopButton();
                     isMyTurn = true;
@@ -798,7 +808,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
         }
 
         tvTurnInfo.setText(message);
-        showConfirmButton(partyId != null ? "Nazad u partiju" : "Zatvori");
+        showConfirmButton(challengeMode ? "Nazad u izazov" : (partyId != null ? "Nazad u partiju" : "Zatvori"));
         btnForfeit.setEnabled(false);
         btnConfirmExpression.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -806,6 +816,9 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
                 finish();
             }
         });
+        if (challengeMode) {
+            submitChallengeScore(ownerScore);
+        }
     }
 
     private void finishPartyGameIfNeeded(int ownerScore, int guestScore) {
@@ -817,10 +830,34 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
                 new PartyRepository.OperationCallback() {
                     @Override
                     public void onSuccess() {
+                        runOnUiThread(() -> finish());
                     }
 
                     @Override
                     public void onError(String message) {
+                        runOnUiThread(() -> Toast.makeText(MojBrojActivity.this, message, Toast.LENGTH_SHORT).show());
+                    }
+                });
+    }
+
+    private void submitChallengeScore(int score) {
+        if (challengeScoreSubmitted || challengeId == null || currentUserId == null) {
+            return;
+        }
+        challengeScoreSubmitted = true;
+        challengeRepository.submitGameScore(challengeId, currentUserId, gameKey, score,
+                new ChallengeRepository.OperationCallback() {
+                    @Override
+                    public void onSuccess() {
+                        runOnUiThread(() -> {
+                            Toast.makeText(MojBrojActivity.this, "Rezultat izazova je sacuvan.", Toast.LENGTH_SHORT).show();
+                            finish();
+                        });
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        challengeScoreSubmitted = false;
                         runOnUiThread(() -> Toast.makeText(MojBrojActivity.this, message, Toast.LENGTH_SHORT).show());
                     }
                 });

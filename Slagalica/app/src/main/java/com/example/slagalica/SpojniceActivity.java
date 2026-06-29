@@ -10,6 +10,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.auth.FirebaseManager;
+import com.example.slagalica.challenge.ChallengeRepository;
 import com.example.slagalica.party.PartyRepository;
 import com.example.slagalica.profile.ProfileStatsUpdater;
 import com.example.slagalica.spojnice.FirestoreSpojniceRepository;
@@ -58,12 +59,15 @@ public class SpojniceActivity extends AppCompatActivity {
     private SpojniceSessionRepository sessionRepository;
     private ProfileStatsUpdater profileStatsUpdater;
     private PartyRepository partyRepository;
+    private ChallengeRepository challengeRepository;
 
     private String sessionId;
     private String partyId;
+    private String challengeId;
     private String gameDocId;
     private String gameKey;
     private boolean countsForStats = true;
+    private boolean challengeMode = false;
     private boolean isOwner;
     private String currentUserId;
     private ListenerRegistration gameListener;
@@ -75,6 +79,7 @@ public class SpojniceActivity extends AppCompatActivity {
     private int selectedLeftIndex = -1;
     private boolean waitingForGameRetryScheduled = false;
     private boolean phaseAdvanceRequested = false;
+    private boolean challengeScoreSubmitted = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,12 +91,15 @@ public class SpojniceActivity extends AppCompatActivity {
         sessionRepository = new SpojniceSessionRepository();
         profileStatsUpdater = new ProfileStatsUpdater();
         partyRepository = new PartyRepository();
+        challengeRepository = new ChallengeRepository();
 
         sessionId = getIntent().getStringExtra("sessionId");
         partyId = getIntent().getStringExtra("partyId");
+        challengeId = getIntent().getStringExtra("challengeId");
         gameDocId = getIntent().getStringExtra("gameDocId");
         gameKey = getIntent().getStringExtra("gameKey");
         countsForStats = getIntent().getBooleanExtra("countsForStats", true);
+        challengeMode = getIntent().getBooleanExtra("challengeMode", false);
         isOwner = getIntent().getBooleanExtra("isOwner", true);
         if (gameDocId == null || gameDocId.trim().isEmpty()) {
             gameDocId = sessionId;
@@ -154,11 +162,13 @@ public class SpojniceActivity extends AppCompatActivity {
         btnRight5.setOnClickListener(v -> tryMatch(4));
 
         btnNextRound.setOnClickListener(v -> handleNextPhaseClick());
-        if (partyId != null) {
+        if (partyId != null && !challengeMode) {
             btnBack.setText("Odustani");
+        } else if (challengeMode) {
+            btnBack.setText("Nazad u izazov");
         }
         btnBack.setOnClickListener(v -> {
-            if (partyId != null) {
+            if (partyId != null && !challengeMode) {
                 forfeitParty();
             } else {
                 finish();
@@ -474,11 +484,11 @@ public class SpojniceActivity extends AppCompatActivity {
         }
 
         if ("round1_owner_turn".equals(gameState.phase) && attemptsUsed >= ITEMS_PER_ROUND) {
-            return "round1_guest_cleanup";
+            return challengeMode ? "round_result" : "round1_guest_cleanup";
         }
 
         if ("round2_guest_turn".equals(gameState.phase) && attemptsUsed >= ITEMS_PER_ROUND) {
-            return "round2_owner_cleanup";
+            return challengeMode ? "round_result" : "round2_owner_cleanup";
         }
 
         if ("round1_guest_cleanup".equals(gameState.phase) || "round2_owner_cleanup".equals(gameState.phase)) {
@@ -540,11 +550,11 @@ public class SpojniceActivity extends AppCompatActivity {
         String nextPhase = "round_result";
 
         if ("round1_owner_turn".equals(currentState.phase)) {
-            nextPhase = "round1_guest_cleanup";
+            nextPhase = challengeMode ? "round_result" : "round1_guest_cleanup";
         } else if ("round1_guest_cleanup".equals(currentState.phase)) {
             nextPhase = "round_result";
         } else if ("round2_guest_turn".equals(currentState.phase)) {
-            nextPhase = "round2_owner_cleanup";
+            nextPhase = challengeMode ? "round_result" : "round2_owner_cleanup";
         } else if ("round2_owner_cleanup".equals(currentState.phase)) {
             nextPhase = "round_result";
         }
@@ -658,12 +668,15 @@ public class SpojniceActivity extends AppCompatActivity {
     private void showFinalResult(SpojniceSessionRepository.GameState gameState) {
         stopTimer();
         setSelectionEnabled(false);
-        btnNextRound.setEnabled(partyId != null);
-        btnNextRound.setText(partyId != null ? "Nazad u partiju" : "Kraj igre");
-        if (partyId != null) {
+        btnNextRound.setEnabled(partyId != null || challengeMode);
+        btnNextRound.setText(challengeMode ? "Nazad u izazov" : (partyId != null ? "Nazad u partiju" : "Kraj igre"));
+        if (partyId != null || challengeMode) {
             btnNextRound.setOnClickListener(v -> finish());
         }
         tvSelected.setText(buildFinalResultMessage(gameState.ownerScore, gameState.guestScore, gameState.winner));
+        if (challengeMode) {
+            submitChallengeScore(gameState.ownerScore);
+        }
     }
 
     private void finishPartyGameIfNeeded(int ownerScore, int guestScore) {
@@ -675,10 +688,34 @@ public class SpojniceActivity extends AppCompatActivity {
                 new PartyRepository.OperationCallback() {
                     @Override
                     public void onSuccess() {
+                        runOnUiThread(() -> finish());
                     }
 
                     @Override
                     public void onError(String message) {
+                        runOnUiThread(() -> Toast.makeText(SpojniceActivity.this, message, Toast.LENGTH_SHORT).show());
+                    }
+                });
+    }
+
+    private void submitChallengeScore(int score) {
+        if (challengeScoreSubmitted || challengeId == null || currentUserId == null) {
+            return;
+        }
+        challengeScoreSubmitted = true;
+        challengeRepository.submitGameScore(challengeId, currentUserId, gameKey, score,
+                new ChallengeRepository.OperationCallback() {
+                    @Override
+                    public void onSuccess() {
+                        runOnUiThread(() -> {
+                            Toast.makeText(SpojniceActivity.this, "Rezultat izazova je sacuvan.", Toast.LENGTH_SHORT).show();
+                            finish();
+                        });
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        challengeScoreSubmitted = false;
                         runOnUiThread(() -> Toast.makeText(SpojniceActivity.this, message, Toast.LENGTH_SHORT).show());
                     }
                 });
@@ -735,7 +772,7 @@ public class SpojniceActivity extends AppCompatActivity {
                 baseMessage = !isOwner ? "Tvoj cleanup: povezi preostale pojmove." : "Protivnik cisti preostale pojmove.";
                 break;
             case "round2_guest_turn":
-                baseMessage = !isOwner ? "Tvoj red: povezi 5 pojmova." : "Protivnik povezuje pojmove.";
+                baseMessage = (!isOwner || challengeMode) ? "Tvoj red: povezi 5 pojmova." : "Protivnik povezuje pojmove.";
                 break;
             case "round2_owner_cleanup":
                 baseMessage = isOwner ? "Tvoj cleanup: povezi preostale pojmove." : "Protivnik cisti preostale pojmove.";
@@ -816,7 +853,7 @@ public class SpojniceActivity extends AppCompatActivity {
             case "round1_guest_cleanup":
                 return !isOwner;
             case "round2_guest_turn":
-                return !isOwner;
+                return !isOwner || challengeMode;
             case "round2_owner_cleanup":
                 return isOwner;
             default:
