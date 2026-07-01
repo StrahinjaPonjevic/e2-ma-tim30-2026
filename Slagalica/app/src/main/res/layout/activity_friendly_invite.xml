@@ -17,17 +17,17 @@
             android:orientation="horizontal">
 
             <TextView
-                android:id="@+id/tvChallengeDetailTitle"
+                android:id="@+id/tvFriendlyTitle"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Izazov"
+                android:text="Prijateljska partija"
                 android:textColor="#1E1E1E"
                 android:textSize="26sp"
                 android:textStyle="bold" />
 
             <Button
-                android:id="@+id/btnChallengeDetailBack"
+                android:id="@+id/btnFriendlyBack"
                 android:layout_width="wrap_content"
                 android:layout_height="48dp"
                 android:text="Nazad"
@@ -35,58 +35,58 @@
         </LinearLayout>
 
         <TextView
-            android:id="@+id/tvChallengeInfo"
+            android:id="@+id/tvIncomingInvite"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:text="Info"
-            android:textColor="#333333"
-            android:textSize="16sp" />
-
-        <TextView
-            android:id="@+id/tvChallengeParticipants"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="18dp"
             android:background="#FFFFFF"
             android:padding="12dp"
-            android:text="Ucesnici"
+            android:text="Nema aktivnih poziva."
             android:textColor="#333333"
             android:textSize="16sp" />
 
-        <TextView
-            android:id="@+id/tvChallengeResult"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:text="Rezultat"
-            android:textColor="#6200EE"
-            android:textSize="17sp"
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnAcceptFriendlyInvite"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:text="Prihvati"
+                android:textAllCaps="false"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/btnDeclineFriendlyInvite"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:text="Odbij"
+                android:textAllCaps="false"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            android:layout_marginBottom="8dp"
+            android:text="Igraci iz regiona"
+            android:textColor="#333333"
+            android:textSize="18sp"
             android:textStyle="bold" />
 
-        <LinearLayout
-            android:id="@+id/scoreInputs"
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvFriendlyUsers"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:orientation="vertical"
-            android:visibility="gone" />
+            android:nestedScrollingEnabled="false" />
 
-        <Button
-            android:id="@+id/btnChallengePrimary"
-            android:layout_width="match_parent"
-            android:layout_height="54dp"
-            android:layout_marginTop="18dp"
-            android:text="Akcija"
-            android:textAllCaps="false" />
-
-        <Button
-            android:id="@+id/btnSubmitChallengeScore"
-            android:layout_width="match_parent"
-            android:layout_height="54dp"
-            android:layout_marginTop="12dp"
-            android:text="Posalji solo set rezultat"
-            android:textAllCaps="false"
-            android:visibility="gone" />
     </LinearLayout>
 </ScrollView>

@@ -115,10 +115,8 @@ public class UserProfileRepository {
                         return false;
                     }
 
-                    int stars = intValue(snapshot.get("stars"));
-                    int grant = 5 + leagueBonus(stars);
                     Map<String, Object> updates = new HashMap<>();
-                    updates.put("tokens", FieldValue.increment(grant));
+                    updates.put("tokens", FieldValue.increment(5));
                     updates.put("lastDailyTokenGrant", FieldValue.serverTimestamp());
                     transaction.update(userRef, updates);
                     return true;
@@ -221,13 +219,4 @@ public class UserProfileRepository {
                 && grantDay.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR);
     }
 
-    private int leagueBonus(int stars) {
-        if (stars >= 200) {
-            return 2;
-        }
-        if (stars >= 100) {
-            return 1;
-        }
-        return 0;
-    }
 }

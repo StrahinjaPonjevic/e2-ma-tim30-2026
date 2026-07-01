@@ -1,16 +1,23 @@
 package com.example.slagalica.challenge;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.example.slagalica.AsocijacijeActivity;
+import com.example.slagalica.KoZnaZnaActivity;
+import com.example.slagalica.KorakPoKorakActivity;
+import com.example.slagalica.MojBrojActivity;
 import com.example.slagalica.R;
+import com.example.slagalica.SkockoActivity;
+import com.example.slagalica.SpojniceActivity;
+import com.example.slagalica.party.PartyData;
 import com.example.slagalica.auth.FirebaseManager;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.ListenerRegistration;
@@ -20,23 +27,13 @@ import java.util.Map;
 
 public class ChallengeDetailActivity extends AppCompatActivity {
 
-    private static final String[] GAME_LABELS = {
-            "Ko zna zna",
-            "Spojnice",
-            "Asocijacije",
-            "Skocko",
-            "Korak po korak",
-            "Moj broj"
-    };
-
     private TextView tvTitle;
     private TextView tvInfo;
     private TextView tvParticipants;
     private TextView tvResult;
     private LinearLayout scoreInputs;
-    private EditText[] scoreFields;
     private Button btnPrimary;
-    private Button btnSubmitScore;
+    private Button btnPlayNextGame;
     private Button btnBack;
 
     private FirebaseManager firebaseManager;
@@ -65,7 +62,7 @@ public class ChallengeDetailActivity extends AppCompatActivity {
         bindViews();
         btnBack.setOnClickListener(v -> finish());
         btnPrimary.setOnClickListener(v -> handlePrimaryAction());
-        btnSubmitScore.setOnClickListener(v -> submitSoloScore());
+        btnPlayNextGame.setOnClickListener(v -> openNextChallengeGame());
         loadUserAndListen();
     }
 
@@ -76,17 +73,8 @@ public class ChallengeDetailActivity extends AppCompatActivity {
         tvResult = findViewById(R.id.tvChallengeResult);
         scoreInputs = findViewById(R.id.scoreInputs);
         btnPrimary = findViewById(R.id.btnChallengePrimary);
-        btnSubmitScore = findViewById(R.id.btnSubmitChallengeScore);
+        btnPlayNextGame = findViewById(R.id.btnSubmitChallengeScore);
         btnBack = findViewById(R.id.btnChallengeDetailBack);
-
-        scoreFields = new EditText[]{
-                findViewById(R.id.etScoreKoZnaZna),
-                findViewById(R.id.etScoreSpojnice),
-                findViewById(R.id.etScoreAsocijacije),
-                findViewById(R.id.etScoreSkocko),
-                findViewById(R.id.etScoreKorak),
-                findViewById(R.id.etScoreMojBroj)
-        };
     }
 
     private void loadUserAndListen() {
@@ -129,11 +117,11 @@ public class ChallengeDetailActivity extends AppCompatActivity {
         tvParticipants.setText(buildParticipantsText(challenge));
 
         boolean participant = challenge.hasParticipant(currentUser.getUid());
-        boolean scored = challenge.hasScore(currentUser.getUid());
+        boolean completed = challenge.hasCompletedRun(currentUser.getUid());
         boolean creator = currentUser.getUid().equals(challenge.creatorId);
 
         scoreInputs.setVisibility(View.GONE);
-        btnSubmitScore.setVisibility(View.GONE);
+        btnPlayNextGame.setVisibility(View.GONE);
         btnPrimary.setVisibility(View.VISIBLE);
 
         if (ChallengeData.STATUS_OPEN.equals(challenge.status)) {
@@ -153,12 +141,14 @@ public class ChallengeDetailActivity extends AppCompatActivity {
 
         if (ChallengeData.STATUS_IN_PROGRESS.equals(challenge.status)) {
             tvResult.setText("Izazov je u toku.");
-            if (participant && !scored) {
+            if (participant && !completed) {
+                String nextGameKey = challenge.currentGameKey(currentUser.getUid());
                 btnPrimary.setVisibility(View.GONE);
-                scoreInputs.setVisibility(View.VISIBLE);
-                btnSubmitScore.setVisibility(View.VISIBLE);
+                btnPlayNextGame.setVisibility(View.VISIBLE);
+                btnPlayNextGame.setEnabled(nextGameKey != null);
+                btnPlayNextGame.setText("Odigraj: " + PartyData.displayNameForGame(nextGameKey));
             } else {
-                btnPrimary.setText(scored ? "Rezultat poslat" : "Niste ucesnik");
+                btnPrimary.setText(completed ? "Rezultat poslat" : "Niste ucesnik");
                 btnPrimary.setEnabled(false);
             }
             return;
@@ -181,31 +171,41 @@ public class ChallengeDetailActivity extends AppCompatActivity {
         }
     }
 
-    private void submitSoloScore() {
-        int total = 0;
-        for (int i = 0; i < scoreFields.length; i++) {
-            String raw = scoreFields[i].getText().toString().trim();
-            if (raw.isEmpty()) {
-                scoreFields[i].setError(GAME_LABELS[i] + " score je obavezan");
-                return;
-            }
-            total += parseInt(raw);
+    private void openNextChallengeGame() {
+        if (latestChallenge == null || !latestChallenge.hasParticipant(currentUser.getUid())) {
+            return;
+        }
+        String gameKey = latestChallenge.currentGameKey(currentUser.getUid());
+        Class<?> activityClass = activityForGame(gameKey);
+        if (gameKey == null || activityClass == null) {
+            Toast.makeText(this, "Igra nije dostupna.", Toast.LENGTH_SHORT).show();
+            return;
         }
 
-        btnSubmitScore.setEnabled(false);
-        challengeRepository.submitScore(challengeId, currentUser.getUid(), total, new ChallengeRepository.OperationCallback() {
+        btnPlayNextGame.setEnabled(false);
+        challengeRepository.prepareGameSession(challengeId, currentUser.getUid(), username, gameKey,
+                new ChallengeRepository.OperationCallback() {
             @Override
             public void onSuccess() {
                 runOnUiThread(() -> {
-                    btnSubmitScore.setEnabled(true);
-                    Toast.makeText(ChallengeDetailActivity.this, "Rezultat poslat.", Toast.LENGTH_SHORT).show();
+                    btnPlayNextGame.setEnabled(true);
+                    Intent intent = new Intent(ChallengeDetailActivity.this, activityClass);
+                    String gameDocId = latestChallenge.gameDocId(currentUser.getUid(), gameKey);
+                    intent.putExtra("sessionId", gameDocId);
+                    intent.putExtra("gameDocId", gameDocId);
+                    intent.putExtra("gameKey", gameKey);
+                    intent.putExtra("isOwner", true);
+                    intent.putExtra("countsForStats", false);
+                    intent.putExtra("challengeMode", true);
+                    intent.putExtra("challengeId", challengeId);
+                    startActivity(intent);
                 });
             }
 
             @Override
             public void onError(String message) {
                 runOnUiThread(() -> {
-                    btnSubmitScore.setEnabled(true);
+                    btnPlayNextGame.setEnabled(true);
                     Toast.makeText(ChallengeDetailActivity.this, message, Toast.LENGTH_SHORT).show();
                 });
             }
@@ -228,11 +228,12 @@ public class ChallengeDetailActivity extends AppCompatActivity {
     private String buildParticipantsText(ChallengeData challenge) {
         StringBuilder builder = new StringBuilder("Ucesnici:\n");
         for (Map.Entry<String, Object> entry : challenge.participants.entrySet()) {
+            String uid = entry.getKey();
             builder.append("- ")
                     .append(entry.getValue())
-                    .append(challenge.scores.get(entry.getKey()) instanceof Number
-                            ? " (" + challenge.scores.get(entry.getKey()) + ")"
-                            : "")
+                    .append(challenge.hasCompletedRun(uid)
+                            ? " (" + challenge.totalScore(uid) + ")"
+                            : buildProgressSuffix(challenge, uid))
                     .append("\n");
         }
         return builder.toString().trim();
@@ -244,11 +245,33 @@ public class ChallengeDetailActivity extends AppCompatActivity {
         return "Pobednik: " + winnerName + "\nDrugo mesto: " + secondName;
     }
 
-    private int parseInt(String value) {
-        try {
-            return Math.max(0, Integer.parseInt(value));
-        } catch (Exception e) {
-            return 0;
+    private String buildProgressSuffix(ChallengeData challenge, String uid) {
+        if (!ChallengeData.STATUS_IN_PROGRESS.equals(challenge.status)) {
+            return "";
+        }
+        int current = challenge.currentGameIndex(uid) + 1;
+        return " (igra " + current + "/" + ChallengeData.GAME_KEYS.length + ")";
+    }
+
+    private Class<?> activityForGame(String gameKey) {
+        if (gameKey == null) {
+            return null;
+        }
+        switch (gameKey) {
+            case "ko_zna_zna":
+                return KoZnaZnaActivity.class;
+            case "spojnice":
+                return SpojniceActivity.class;
+            case "asocijacije":
+                return AsocijacijeActivity.class;
+            case "skocko":
+                return SkockoActivity.class;
+            case "korak_po_korak":
+                return KorakPoKorakActivity.class;
+            case "moj_broj":
+                return MojBrojActivity.class;
+            default:
+                return null;
         }
     }
 

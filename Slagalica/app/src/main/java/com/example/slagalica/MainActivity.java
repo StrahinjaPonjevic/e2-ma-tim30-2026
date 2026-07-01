@@ -5,6 +5,8 @@ import com.example.slagalica.challenge.ChallengeActivity;
 import com.example.slagalica.chat.ChatActivity;
 import com.example.slagalica.chat.ChatRepository;
 import com.example.slagalica.notifications.NotificationChannelManager;
+import com.example.slagalica.party.FriendlyInviteActivity;
+import com.example.slagalica.party.FriendlyInviteRepository;
 import com.example.slagalica.profile.UserProfile;
 import com.example.slagalica.profile.UserProfileRepository;
 
@@ -43,6 +45,7 @@ public class MainActivity extends AppCompatActivity {
     private Button btnOpenPlayGuest;
     private Button btnOpenProfile;
     private Button btnOpenPlayLoggedIn;
+    private Button btnOpenFriendly;
     private Button btnOpenChat;
     private Button btnOpenChallenges;
     private TextView tvLoggedInUser;
@@ -73,6 +76,7 @@ public class MainActivity extends AppCompatActivity {
         btnOpenPlayGuest = findViewById(R.id.btnOpenPlayGuest);
         btnOpenProfile = findViewById(R.id.btnOpenProfile);
         btnOpenPlayLoggedIn = findViewById(R.id.btnOpenPlayLoggedIn);
+        btnOpenFriendly = findViewById(R.id.btnOpenFriendly);
         btnOpenChat = findViewById(R.id.btnOpenChat);
         btnOpenChallenges = findViewById(R.id.btnOpenChallenges);
         tvLoggedInUser = findViewById(R.id.tvLoggedInUser);
@@ -101,6 +105,7 @@ public class MainActivity extends AppCompatActivity {
         guestSection.setVisibility(View.VISIBLE);
         loggedInSection.setVisibility(View.GONE);
         ChatRepository.stopNotificationListener();
+        FriendlyInviteRepository.stopNotificationListener();
 
         btnOpenLogin.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, LoginActivity.class)));
         btnOpenRegister.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, RegisterActivity.class)));
@@ -127,6 +132,7 @@ public class MainActivity extends AppCompatActivity {
 
         btnOpenProfile.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, ProfileActivity.class)));
         btnOpenPlayLoggedIn.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, SessionActivity.class)));
+        btnOpenFriendly.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, FriendlyInviteActivity.class)));
         btnOpenChat.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, ChatActivity.class)));
         btnOpenChallenges.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, ChallengeActivity.class)));
     }
@@ -136,6 +142,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onSuccess(UserProfile profile) {
                 ChatRepository.startNotificationListener(MainActivity.this, profile.region, user.getUid());
+                FriendlyInviteRepository.startNotificationListener(MainActivity.this, user.getUid());
                 runOnUiThread(() -> {
                     tvLoggedInUser.setText("Dobrodosli, " + profile.username + "!");
                     tvTokensStars.setText("Tokeni: " + profile.tokens
@@ -160,13 +167,9 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         FirebaseUser currentUser = firebaseManager.getCurrentUser();
         if (currentUser != null && !currentUser.isAnonymous()) {
-            if (loggedInSection.getVisibility() != View.VISIBLE) {
-                showLoggedInView(currentUser);
-            }
+            showLoggedInView(currentUser);
         } else {
-            if (guestSection.getVisibility() != View.VISIBLE) {
-                showGuestView();
-            }
+            showGuestView();
         }
     }
 
