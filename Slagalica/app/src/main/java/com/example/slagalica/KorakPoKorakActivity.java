@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.slagalica.auth.FirebaseManager;
 import com.example.slagalica.auth.SessionManager;
 import com.example.slagalica.challenge.ChallengeRepository;
+import com.example.slagalica.party.PartyData;
 import com.example.slagalica.party.PartyRepository;
 import com.example.slagalica.profile.ProfileStatsUpdater;
 import com.google.firebase.auth.FirebaseUser;
@@ -57,9 +58,11 @@ public class KorakPoKorakActivity extends AppCompatActivity {
     private boolean challengeMode = false;
     private String currentUserId;
     private boolean isOwner;
+    private boolean canControlGameFlow;
     private boolean gameInitialized = false;
     private CountDownTimer countDownTimer;
     private com.google.firebase.firestore.ListenerRegistration gameListener;
+    private com.google.firebase.firestore.ListenerRegistration partyListener;
 
     private String currentPhase;
     private int currentRound = 1;
@@ -74,6 +77,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
     private boolean isStealTurn = false;
     private boolean gameFinished = false;
     private boolean challengeScoreSubmitted = false;
+    private boolean returningToParty = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -87,7 +91,8 @@ public class KorakPoKorakActivity extends AppCompatActivity {
         gameKey = getIntent().getStringExtra("gameKey");
         countsForStats = getIntent().getBooleanExtra("countsForStats", true);
         challengeMode = getIntent().getBooleanExtra("challengeMode", false);
-        isOwner = getIntent().getBooleanExtra("isOwner", true);
+        canControlGameFlow = getIntent().getBooleanExtra("isOwner", true);
+        isOwner = canControlGameFlow;
         if (gameDocId == null || gameDocId.trim().isEmpty()) {
             gameDocId = sessionId;
         }
@@ -122,12 +127,49 @@ public class KorakPoKorakActivity extends AppCompatActivity {
                     if (snapshot.exists()) {
                         ownerId = snapshot.getString("ownerId");
                         guestId = snapshot.getString("guestId");
+                        if (currentUserId != null) {
+                            isOwner = currentUserId.equals(ownerId);
+                        }
                     }
+                    observePartyIfNeeded();
                     listenForGameData();
                 })
                 .addOnFailureListener(e -> {
                     listenForGameData();
                 });
+    }
+
+    private void observePartyIfNeeded() {
+        if (partyId == null || challengeMode) {
+            return;
+        }
+
+        partyListener = partyRepository.listenParty(partyId, new PartyRepository.PartyListener() {
+            @Override
+            public void onPartyChanged(PartyData party) {
+                if (returningToParty || party == null) {
+                    return;
+                }
+
+                boolean partyMovedOn = !PartyData.STATUS_IN_PROGRESS.equals(party.status)
+                        || (party.currentGameKey != null && !party.currentGameKey.equals(gameKey));
+                if (!partyMovedOn) {
+                    return;
+                }
+
+                returningToParty = true;
+                runOnUiThread(() -> {
+                    if (countDownTimer != null) {
+                        countDownTimer.cancel();
+                    }
+                    finish();
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+            }
+        });
     }
 
     private void bindViews() {
@@ -192,14 +234,14 @@ public class KorakPoKorakActivity extends AppCompatActivity {
                     public void onEvent(DocumentSnapshot snapshot,
                                         com.google.firebase.firestore.FirebaseFirestoreException e) {
                         if (e != null) {
-                            if (!gameInitialized && isOwner) {
+                            if (!gameInitialized && canControlGameFlow) {
                                 initializeGame();
                             }
                             return;
                         }
 
                         if (snapshot == null || !snapshot.exists()) {
-                            if (!gameInitialized && isOwner) {
+                            if (!gameInitialized && canControlGameFlow) {
                                 initializeGame();
                             }
                             return;
@@ -280,7 +322,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
                         db.collection("games").document(gameDocId)
                                 .set(gameData)
                                 .addOnSuccessListener(aVoid -> {
-                                    if (isOwner) {
+                                    if (canControlGameFlow) {
                                         startRound1();
                                     }
                                 });
@@ -316,7 +358,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
 
         switch (currentPhase) {
             case "waiting_for_owner":
-                if (isOwner) {
+                if (canControlGameFlow) {
                     tvTurnInfo.setText("Pritisnite Start za početak");
                     enableAnswerInput(false);
                 } else {
@@ -406,7 +448,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
     }
 
     private void startRound2() {
-        if (!isOwner) return;
+        if (!canControlGameFlow) return;
         Map<String, Object> updates = new HashMap<>();
         updates.put("currentRound", 2);
         updates.put("phase", "guest_playing");
@@ -587,7 +629,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
 
     private void handleTimerExpiry() {
         if (gameFinished) return;
-        if (!isOwner) return;
+        if (!canControlGameFlow) return;
 
         DocumentReference gameRef = db.collection("games").document(gameDocId);
         String currentPhase = this.currentPhase;
@@ -616,7 +658,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
     }
 
     private void determineWinner() {
-        if (!isOwner) return;
+        if (!canControlGameFlow) return;
         DocumentReference gameRef = db.collection("games").document(gameDocId);
         gameRef.get().addOnSuccessListener(snapshot -> {
             if (Boolean.TRUE.equals(snapshot.getBoolean("gameFinished"))) {
@@ -713,7 +755,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
     }
 
     private void finishPartyGameIfNeeded(int ownerScore, int guestScore) {
-        if (partyId == null || !isOwner) {
+        if (partyId == null || !canControlGameFlow) {
             return;
         }
 
@@ -791,5 +833,6 @@ public class KorakPoKorakActivity extends AppCompatActivity {
         super.onDestroy();
         if (countDownTimer != null) countDownTimer.cancel();
         if (gameListener != null) gameListener.remove();
+        if (partyListener != null) partyListener.remove();
     }
 }

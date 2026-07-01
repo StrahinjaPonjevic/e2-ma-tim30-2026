@@ -196,6 +196,7 @@ public class SessionActivity extends AppCompatActivity {
                             btnJoinGame.setEnabled(true);
                             Intent intent = new Intent(SessionActivity.this, PartyActivity.class);
                             intent.putExtra(PartyActivity.EXTRA_QUEUE_WAITING, true);
+                            intent.putExtra(PartyActivity.EXTRA_QUEUE_STARTED_AT_MS, System.currentTimeMillis());
                             startActivity(intent);
                             finish();
                         });

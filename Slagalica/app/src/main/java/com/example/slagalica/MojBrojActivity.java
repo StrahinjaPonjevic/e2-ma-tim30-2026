@@ -71,6 +71,8 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
     private boolean challengeMode = false;
     private String currentUserId;
     private boolean isOwner;
+    private boolean canControlGameFlow;
+    private boolean opponentForfeited;
     private ListenerRegistration gameListener;
     private ListenerRegistration partyListener;
     private boolean returningToParty = false;
@@ -118,7 +120,8 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
         gameKey = getIntent().getStringExtra("gameKey");
         countsForStats = getIntent().getBooleanExtra("countsForStats", true);
         challengeMode = getIntent().getBooleanExtra("challengeMode", false);
-        isOwner = getIntent().getBooleanExtra("isOwner", true);
+        canControlGameFlow = getIntent().getBooleanExtra("isOwner", true);
+        isOwner = canControlGameFlow;
         if (gameDocId == null || gameDocId.trim().isEmpty()) {
             gameDocId = sessionId;
         }
@@ -263,6 +266,9 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
                     if (snapshot.exists()) {
                         ownerId = snapshot.getString("ownerId");
                         guestId = snapshot.getString("guestId");
+                        if (currentUserId != null) {
+                            isOwner = currentUserId.equals(ownerId);
+                        }
                     }
                     listenForGameData();
                 })
@@ -273,11 +279,11 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
         gameListener = db.collection("games").document(gameDocId)
                 .addSnapshotListener((snapshot, e) -> {
                     if (e != null) {
-                        if (!gameInitialized && isOwner) initializeGame();
+                        if (!gameInitialized && canControlGameFlow) initializeGame();
                         return;
                     }
                     if (snapshot == null || !snapshot.exists()) {
-                        if (!gameInitialized && isOwner) initializeGame();
+                        if (!gameInitialized && canControlGameFlow) initializeGame();
                         return;
                     }
 
@@ -316,9 +322,10 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
                     gameFinished = snapshot.getBoolean("gameFinished") != null
                             && snapshot.getBoolean("gameFinished");
 
-                    if (isOwner && !gameFinished && currentPhase != null
+                    if (canControlGameFlow && !gameFinished && currentPhase != null
                             && (currentPhase.endsWith("r1_play") || currentPhase.endsWith("r2_play"))
-                            && ownerResult != null && (guestResult != null || challengeMode)) {
+                            && getControllerSideResult() != null
+                            && (getOtherSideResult() != null || challengeMode || opponentForfeited)) {
                         String next = currentPhase.equals("r1_play") ? "r1_end" : "r2_end";
                         Map<String, Object> autoUpdates = new HashMap<>();
                         autoUpdates.put("phase", next);
@@ -351,6 +358,17 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
                 if (returningToParty) {
                     return;
                 }
+
+                boolean currentUserForfeited = currentUserId != null && party.hasCurrentUserForfeited(currentUserId);
+                opponentForfeited = party.hasForfeit() && !currentUserForfeited;
+                boolean shouldControl = currentUserId != null && party.isOwner(currentUserId);
+                if (currentUserId != null && party.ownerForfeited && currentUserId.equals(party.guestId)) {
+                    shouldControl = true;
+                }
+                if (currentUserId != null && party.guestForfeited && currentUserId.equals(party.ownerId)) {
+                    shouldControl = true;
+                }
+                canControlGameFlow = shouldControl;
 
                 boolean partyMovedOn = !PartyData.STATUS_IN_PROGRESS.equals(party.status)
                         || (party.currentGameKey != null && !party.currentGameKey.equals(gameKey));
@@ -459,7 +477,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
                 resetNumberButtonsText();
                 resetExpression();
                 tvCurrentResult.setText("= ---");
-                if (isOwner) {
+                if (isOwner || (opponentForfeited && canControlGameFlow)) {
                     tvTurnInfo.setText("Pritisnite STOP za otkrivanje brojeva");
                     setInputEnabled(false);
                     showStopButton();
@@ -474,7 +492,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
 
             case "r1_target":
                 tvTargetNumber.setText("Tra\u017eeni broj: " + targetRound1);
-                if (isOwner) {
+                if (isOwner || (opponentForfeited && canControlGameFlow)) {
                     tvTurnInfo.setText("Pritisnite STOP za brojeve (ili " + AUTO_REVEAL_DELAY + "s)");
                     showStopButton();
                     isMyTurn = true;
@@ -487,7 +505,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
 
             case "r1_numbers":
                 setNumbersOnButtons(numbersRound1);
-                if (isOwner) {
+                if (isOwner || (opponentForfeited && canControlGameFlow)) {
                     tvTurnInfo.setText("Pritisnite STOP za po\u010detak (ili " + AUTO_REVEAL_DELAY + "s)");
                     showStopButton();
                     isMyTurn = true;
@@ -513,7 +531,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
                 tvTurnInfo.setText("Runda 1 zavr\u0161ena");
                 setInputEnabled(false);
                 hideConfirmButton();
-                if (isOwner) {
+                if (canControlGameFlow) {
                     scoreAndAdvanceRound1();
                 }
                 break;
@@ -524,7 +542,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
                 resetNumberButtonsText();
                 resetExpression();
                 tvCurrentResult.setText("= ---");
-                if (!isOwner || challengeMode) {
+                if (!isOwner || challengeMode || (opponentForfeited && canControlGameFlow)) {
                     tvTurnInfo.setText("Pritisnite STOP za otkrivanje brojeva");
                     setInputEnabled(false);
                     showStopButton();
@@ -539,7 +557,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
 
             case "r2_target":
                 tvTargetNumber.setText("Tra\u017eeni broj: " + targetRound2);
-                if (!isOwner || challengeMode) {
+                if (!isOwner || challengeMode || (opponentForfeited && canControlGameFlow)) {
                     tvTurnInfo.setText("Pritisnite STOP za brojeve (ili " + AUTO_REVEAL_DELAY + "s)");
                     showStopButton();
                     isMyTurn = true;
@@ -552,7 +570,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
 
             case "r2_numbers":
                 setNumbersOnButtons(numbersRound2);
-                if (!isOwner || challengeMode) {
+                if (!isOwner || challengeMode || (opponentForfeited && canControlGameFlow)) {
                     tvTurnInfo.setText("Pritisnite STOP za po\u010detak (ili " + AUTO_REVEAL_DELAY + "s)");
                     showStopButton();
                     isMyTurn = true;
@@ -578,7 +596,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
                 tvTurnInfo.setText("Kraj igre");
                 setInputEnabled(false);
                 hideConfirmButton();
-                if (isOwner) {
+                if (canControlGameFlow) {
                     scoreAndFinishRound2();
                 }
                 break;
@@ -678,7 +696,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
                 if (isMyTurn) next = "r1_play";
                 break;
             case "r1_play":
-                if (isOwner) next = "r1_end";
+                if (canControlGameFlow) next = "r1_end";
                 break;
             case "r2_intro":
                 if (isMyTurn) next = "r2_target";
@@ -690,7 +708,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
                 if (isMyTurn) next = "r2_play";
                 break;
             case "r2_play":
-                if (isOwner) next = "r2_end";
+                if (canControlGameFlow) next = "r2_end";
                 break;
         }
 
@@ -822,7 +840,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
     }
 
     private void finishPartyGameIfNeeded(int ownerScore, int guestScore) {
-        if (partyId == null || !isOwner) {
+        if (partyId == null || !canControlGameFlow) {
             return;
         }
 
@@ -838,6 +856,20 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
                         runOnUiThread(() -> Toast.makeText(MojBrojActivity.this, message, Toast.LENGTH_SHORT).show());
                     }
                 });
+    }
+
+    private Integer getControllerSideResult() {
+        if (isOwner) {
+            return ownerResult;
+        }
+        return guestResult;
+    }
+
+    private Integer getOtherSideResult() {
+        if (isOwner) {
+            return guestResult;
+        }
+        return ownerResult;
     }
 
     private void submitChallengeScore(int score) {

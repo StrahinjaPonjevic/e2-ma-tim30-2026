@@ -47,8 +47,21 @@ public class FriendlyInviteRepository {
         void onError(String message);
     }
 
+    public interface SendInviteCallback {
+        void onSuccess(String inviteId);
+        void onError(String message);
+    }
+
     public interface PartyReadyCallback {
         void onSuccess(String partyId);
+        void onError(String message);
+    }
+
+    public interface OutgoingInviteListener {
+        void onAccepted(String partyId);
+        void onDeclined();
+        void onExpired();
+        void onPending();
         void onError(String message);
     }
 
@@ -110,7 +123,7 @@ public class FriendlyInviteRepository {
     }
 
     public void sendInvite(String inviterId, String inviterUsername, String inviteeId,
-                           String inviteeUsername, OperationCallback callback) {
+                           String inviteeUsername, SendInviteCallback callback) {
         if (inviterId == null || inviterId.equals(inviteeId)) {
             callback.onError("Izaberite drugog igraca");
             return;
@@ -128,8 +141,39 @@ public class FriendlyInviteRepository {
 
         db.collection(INVITES)
                 .add(invite)
-                .addOnSuccessListener(unused -> callback.onSuccess())
+                .addOnSuccessListener(ref -> callback.onSuccess(ref.getId()))
                 .addOnFailureListener(e -> callback.onError(messageOf(e, "Poziv nije poslat")));
+    }
+
+    public ListenerRegistration listenOutgoingInvite(String inviteId, OutgoingInviteListener listener) {
+        return db.collection(INVITES).document(inviteId)
+                .addSnapshotListener((snapshot, error) -> {
+                    if (error != null) {
+                        listener.onError(messageOf(error, "Greska pri osluskivanju poslatog poziva"));
+                        return;
+                    }
+                    if (snapshot == null || !snapshot.exists()) {
+                        listener.onExpired();
+                        return;
+                    }
+
+                    FriendlyInviteData invite = FriendlyInviteData.fromSnapshot(snapshot);
+                    if (invite.isExpired() || FriendlyInviteData.STATUS_EXPIRED.equals(invite.status)) {
+                        listener.onExpired();
+                        return;
+                    }
+                    if (FriendlyInviteData.STATUS_DECLINED.equals(invite.status)) {
+                        listener.onDeclined();
+                        return;
+                    }
+                    if (FriendlyInviteData.STATUS_ACCEPTED.equals(invite.status)
+                            && invite.partyId != null
+                            && !invite.partyId.trim().isEmpty()) {
+                        listener.onAccepted(invite.partyId);
+                        return;
+                    }
+                    listener.onPending();
+                });
     }
 
     public void acceptInvite(String inviteId, String uid, PartyReadyCallback callback) {

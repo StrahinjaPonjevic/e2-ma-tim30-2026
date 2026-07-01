@@ -36,8 +36,10 @@ public class FriendlyInviteActivity extends AppCompatActivity {
     private FriendlyInviteRepository inviteRepository;
     private FirebaseUser currentUser;
     private ListenerRegistration incomingListener;
+    private ListenerRegistration outgoingListener;
     private FriendlyUserAdapter adapter;
     private FriendlyInviteData currentInvite;
+    private String outgoingInviteId;
     private String username;
     private String region;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -217,11 +219,15 @@ public class FriendlyInviteActivity extends AppCompatActivity {
 
     private void sendInvite(FriendlyInviteRepository.UserSummary user) {
         inviteRepository.sendInvite(currentUser.getUid(), username, user.uid, user.username,
-                new FriendlyInviteRepository.OperationCallback() {
+                new FriendlyInviteRepository.SendInviteCallback() {
                     @Override
-                    public void onSuccess() {
-                        runOnUiThread(() -> Toast.makeText(FriendlyInviteActivity.this,
-                                "Poziv poslat. Vazi 10 sekundi.", Toast.LENGTH_SHORT).show());
+                    public void onSuccess(String inviteId) {
+                        runOnUiThread(() -> {
+                            outgoingInviteId = inviteId;
+                            listenOutgoingInvite(inviteId);
+                            Toast.makeText(FriendlyInviteActivity.this,
+                                    "Poziv poslat. Cekanje prihvatanja...", Toast.LENGTH_SHORT).show();
+                        });
                     }
 
                     @Override
@@ -231,12 +237,71 @@ public class FriendlyInviteActivity extends AppCompatActivity {
                 });
     }
 
+    private void listenOutgoingInvite(String inviteId) {
+        if (outgoingListener != null) {
+            outgoingListener.remove();
+            outgoingListener = null;
+        }
+
+        outgoingListener = inviteRepository.listenOutgoingInvite(inviteId, new FriendlyInviteRepository.OutgoingInviteListener() {
+            @Override
+            public void onAccepted(String partyId) {
+                runOnUiThread(() -> {
+                    clearOutgoingInviteListener();
+                    Intent intent = new Intent(FriendlyInviteActivity.this, PartyActivity.class);
+                    intent.putExtra(PartyActivity.EXTRA_PARTY_ID, partyId);
+                    startActivity(intent);
+                    finish();
+                });
+            }
+
+            @Override
+            public void onDeclined() {
+                runOnUiThread(() -> {
+                    clearOutgoingInviteListener();
+                    Toast.makeText(FriendlyInviteActivity.this, "Poziv je odbijen.", Toast.LENGTH_SHORT).show();
+                });
+            }
+
+            @Override
+            public void onExpired() {
+                runOnUiThread(() -> {
+                    clearOutgoingInviteListener();
+                    Toast.makeText(FriendlyInviteActivity.this, "Poziv je istekao.", Toast.LENGTH_SHORT).show();
+                });
+            }
+
+            @Override
+            public void onPending() {
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> {
+                    clearOutgoingInviteListener();
+                    Toast.makeText(FriendlyInviteActivity.this, message, Toast.LENGTH_SHORT).show();
+                });
+            }
+        });
+    }
+
+    private void clearOutgoingInviteListener() {
+        outgoingInviteId = null;
+        if (outgoingListener != null) {
+            outgoingListener.remove();
+            outgoingListener = null;
+        }
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
         handler.removeCallbacksAndMessages(null);
         if (incomingListener != null) {
             incomingListener.remove();
+        }
+        if (outgoingListener != null) {
+            outgoingListener.remove();
         }
     }
 

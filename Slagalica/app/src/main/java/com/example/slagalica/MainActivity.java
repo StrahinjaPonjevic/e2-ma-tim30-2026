@@ -167,13 +167,9 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         FirebaseUser currentUser = firebaseManager.getCurrentUser();
         if (currentUser != null && !currentUser.isAnonymous()) {
-            if (loggedInSection.getVisibility() != View.VISIBLE) {
-                showLoggedInView(currentUser);
-            }
+            showLoggedInView(currentUser);
         } else {
-            if (guestSection.getVisibility() != View.VISIBLE) {
-                showGuestView();
-            }
+            showGuestView();
         }
     }
 

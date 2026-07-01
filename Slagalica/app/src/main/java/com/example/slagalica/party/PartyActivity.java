@@ -11,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.slagalica.AsocijacijeActivity;
 import com.example.slagalica.KoZnaZnaActivity;
 import com.example.slagalica.KorakPoKorakActivity;
+import com.example.slagalica.MainActivity;
 import com.example.slagalica.MojBrojActivity;
 import com.example.slagalica.R;
 import com.example.slagalica.SkockoActivity;
@@ -25,6 +26,8 @@ public class PartyActivity extends AppCompatActivity {
 
     public static final String EXTRA_PARTY_ID = "partyId";
     public static final String EXTRA_QUEUE_WAITING = "queueWaiting";
+    public static final String EXTRA_QUEUE_STARTED_AT_MS = "queueStartedAtMs";
+    private static final long FORFEIT_AUTO_CLEANUP_MS = 100_000L;
 
     private TextView tvTitle;
     private TextView tvProfileLine;
@@ -41,8 +44,10 @@ public class PartyActivity extends AppCompatActivity {
     private FirebaseUser currentUser;
     private String partyId;
     private boolean queueWaiting;
+    private long queueStartedAtMs;
     private String launchedGameDocId;
     private PartyData latestParty;
+    private Runnable autoCleanupRunnable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,6 +65,7 @@ public class PartyActivity extends AppCompatActivity {
         profileRepository = new UserProfileRepository();
         partyId = getIntent().getStringExtra(EXTRA_PARTY_ID);
         queueWaiting = getIntent().getBooleanExtra(EXTRA_QUEUE_WAITING, false);
+        queueStartedAtMs = getIntent().getLongExtra(EXTRA_QUEUE_STARTED_AT_MS, 0L);
 
         bindViews();
         bindListeners();
@@ -91,6 +97,11 @@ public class PartyActivity extends AppCompatActivity {
         btnPrimary.setOnClickListener(v -> {
             if (queueWaiting) {
                 cancelQueueAndFinish();
+            } else if (latestParty != null && latestParty.hasCurrentUserForfeited(currentUser.getUid())) {
+                Intent intent = new Intent(PartyActivity.this, MainActivity.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                startActivity(intent);
+                finish();
             } else if (latestParty != null && PartyData.STATUS_IN_PROGRESS.equals(latestParty.status)) {
                 openCurrentGame(latestParty);
             } else {
@@ -144,7 +155,7 @@ public class PartyActivity extends AppCompatActivity {
     }
 
     private void listenForQueuedParty() {
-        partyListener = partyRepository.listenOwnedInProgressParty(currentUser.getUid(), new PartyRepository.PartyListener() {
+        partyListener = partyRepository.listenOwnedInProgressParty(currentUser.getUid(), queueStartedAtMs, new PartyRepository.PartyListener() {
             @Override
             public void onPartyChanged(PartyData party) {
                 runOnUiThread(() -> {
@@ -183,6 +194,7 @@ public class PartyActivity extends AppCompatActivity {
 
     private void renderParty(PartyData party) {
         latestParty = party;
+        scheduleAutoCleanupIfNeeded(party);
         tvTitle.setText(party.isFriendly() ? "Prijateljska partija" : "Regularna partija");
         tvPlayers.setText(party.ownerUsername + " vs " + party.guestUsername);
         tvTotalScore.setText("Ukupno: " + party.ownerTotalScore + " : " + party.guestTotalScore);
@@ -192,8 +204,8 @@ public class PartyActivity extends AppCompatActivity {
                     + PartyData.GAME_KEYS.length + ": " + PartyData.displayNameForGame(party.currentGameKey));
             if (party.hasCurrentUserForfeited(currentUser.getUid())) {
                 btnForfeit.setEnabled(false);
-                btnPrimary.setEnabled(false);
-                btnPrimary.setText("Partija se nastavlja bez vas");
+                btnPrimary.setEnabled(true);
+                btnPrimary.setText("Nazad");
                 tvStatus.setText("Odustali ste. Protivnik nastavlja partiju.");
                 return;
             }
@@ -223,6 +235,46 @@ public class PartyActivity extends AppCompatActivity {
         } else {
             tvCurrentGame.setText("Partija je zavrsena.");
             tvStatus.setText(resolveWinnerText(party));
+        }
+    }
+
+    private void scheduleAutoCleanupIfNeeded(PartyData party) {
+        clearAutoCleanup();
+        if (party == null
+                || !PartyData.STATUS_IN_PROGRESS.equals(party.status)
+                || !party.hasForfeit()) {
+            return;
+        }
+
+        long referenceMs = 0L;
+        if (party.updatedAt != null) {
+            referenceMs = party.updatedAt.toDate().getTime();
+        } else if (party.createdAt != null) {
+            referenceMs = party.createdAt.toDate().getTime();
+        }
+        long elapsed = referenceMs > 0L ? Math.max(0L, System.currentTimeMillis() - referenceMs) : FORFEIT_AUTO_CLEANUP_MS;
+        long delayMs = Math.max(0L, FORFEIT_AUTO_CLEANUP_MS - elapsed);
+        String currentPartyId = party.partyId;
+
+        autoCleanupRunnable = () -> partyRepository.cleanupInactiveForfeitedParty(
+                currentPartyId,
+                FORFEIT_AUTO_CLEANUP_MS,
+                new PartyRepository.OperationCallback() {
+                    @Override
+                    public void onSuccess() {
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                    }
+                });
+        tvStatus.postDelayed(autoCleanupRunnable, delayMs);
+    }
+
+    private void clearAutoCleanup() {
+        if (autoCleanupRunnable != null) {
+            tvStatus.removeCallbacks(autoCleanupRunnable);
+            autoCleanupRunnable = null;
         }
     }
 
@@ -339,6 +391,7 @@ public class PartyActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        clearAutoCleanup();
         if (partyListener != null) {
             partyListener.remove();
         }

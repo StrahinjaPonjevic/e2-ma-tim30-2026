@@ -123,7 +123,7 @@ public class PartyRepository {
                 });
     }
 
-    public ListenerRegistration listenOwnedInProgressParty(String ownerId, PartyListener listener) {
+    public ListenerRegistration listenOwnedInProgressParty(String ownerId, long minCreatedAtMs, PartyListener listener) {
         return db.collection(PARTIES)
                 .whereEqualTo("ownerId", ownerId)
                 .limit(5)
@@ -137,12 +137,25 @@ public class PartyRepository {
                     }
                     for (DocumentSnapshot doc : snapshot.getDocuments()) {
                         PartyData party = PartyData.fromSnapshot(doc);
-                        if (PartyData.STATUS_IN_PROGRESS.equals(party.status)) {
+                        if (PartyData.STATUS_IN_PROGRESS.equals(party.status)
+                                && isRecentEnoughForQueueMatch(party, minCreatedAtMs)) {
                             listener.onPartyChanged(party);
                             return;
                         }
                     }
                 });
+    }
+
+    private boolean isRecentEnoughForQueueMatch(PartyData party, long minCreatedAtMs) {
+        if (minCreatedAtMs <= 0L) {
+            return true;
+        }
+
+        long createdAtMs = party.createdAt != null ? party.createdAt.toDate().getTime() : 0L;
+        long updatedAtMs = party.updatedAt != null ? party.updatedAt.toDate().getTime() : 0L;
+        long toleranceMs = 5_000L;
+        return createdAtMs >= (minCreatedAtMs - toleranceMs)
+                || updatedAtMs >= (minCreatedAtMs - toleranceMs);
     }
 
     public void finishGameAndAdvance(String partyId, String gameKey, int ownerScore, int guestScore,
@@ -225,6 +238,14 @@ public class PartyRepository {
                     updates.put("updatedAt", FieldValue.serverTimestamp());
 
                     Object rawOtherScore = gameScore.get(otherField);
+                    boolean otherPlayerForfeited = (ownerSide && party.guestForfeited)
+                            || (guestSide && party.ownerForfeited);
+                    if (!(rawOtherScore instanceof Number) && otherPlayerForfeited) {
+                        rawOtherScore = 0;
+                        updates.put("gameScores." + gameKey + "." + otherField, 0);
+                        updates.put("gameScores." + gameKey + "." + (ownerSide ? "guestSubmittedAt" : "ownerSubmittedAt"),
+                                FieldValue.serverTimestamp());
+                    }
                     if (rawOtherScore instanceof Number) {
                         int ownerScore = ownerSide ? score : ((Number) rawOtherScore).intValue();
                         int guestScore = ownerSide ? ((Number) rawOtherScore).intValue() : score;
@@ -334,6 +355,70 @@ public class PartyRepository {
                 })
                 .addOnFailureListener(e -> {
                     if (callback != null) callback.onError(messageOf(e, "Greska pri odustajanju"));
+                });
+    }
+
+    public void cleanupInactiveForfeitedParty(String partyId, long staleAfterMs, OperationCallback callback) {
+        DocumentReference partyRef = db.collection(PARTIES).document(partyId);
+        db.runTransaction(transaction -> {
+                    DocumentSnapshot partySnap = transaction.get(partyRef);
+                    if (!partySnap.exists()) {
+                        return null;
+                    }
+
+                    PartyData party = PartyData.fromSnapshot(partySnap);
+                    if (!PartyData.STATUS_IN_PROGRESS.equals(party.status) || !party.hasForfeit()) {
+                        return null;
+                    }
+
+                    long referenceMs = 0L;
+                    if (party.updatedAt != null) {
+                        referenceMs = party.updatedAt.toDate().getTime();
+                    } else if (party.createdAt != null) {
+                        referenceMs = party.createdAt.toDate().getTime();
+                    }
+                    if (referenceMs > 0L && System.currentTimeMillis() - referenceMs < staleAfterMs) {
+                        return null;
+                    }
+
+                    Map<String, Object> gameScore = party.currentGameScoreMap();
+                    int rawOwnerScore = intValue(gameScore.get("ownerScore"));
+                    int rawGuestScore = intValue(gameScore.get("guestScore"));
+                    int effectiveOwnerScore = normalizedOwnerScore(party, rawOwnerScore, rawGuestScore);
+                    int effectiveGuestScore = normalizedGuestScore(party, rawOwnerScore, rawGuestScore);
+                    int newOwnerTotal = party.ownerTotalScore + effectiveOwnerScore;
+                    int newGuestTotal = party.guestTotalScore + effectiveGuestScore;
+
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("gameScores." + party.currentGameKey + ".ownerScore", effectiveOwnerScore);
+                    updates.put("gameScores." + party.currentGameKey + ".guestScore", effectiveGuestScore);
+                    updates.put("gameScores." + party.currentGameKey + ".winner",
+                            determineSideWinner(effectiveOwnerScore, effectiveGuestScore));
+                    updates.put("gameScores." + party.currentGameKey + ".finishedAt", FieldValue.serverTimestamp());
+                    updates.put("ownerTotalScore", newOwnerTotal);
+                    updates.put("guestTotalScore", newGuestTotal);
+                    updates.put("status", PartyData.STATUS_FINISHED);
+                    updates.put("winner", determinePartyWinnerId(party, newOwnerTotal, newGuestTotal, party.forfeitedBy));
+                    updates.put("rewardApplied", party.isRegular() && party.countsForStats);
+                    updates.put("updatedAt", FieldValue.serverTimestamp());
+                    transaction.update(partyRef, updates);
+
+                    if (party.isRegular() && party.countsForStats && !party.rewardApplied) {
+                        DocumentReference ownerRef = db.collection(USERS).document(party.ownerId);
+                        DocumentReference guestRef = db.collection(USERS).document(party.guestId);
+                        DocumentSnapshot ownerUser = transaction.get(ownerRef);
+                        DocumentSnapshot guestUser = transaction.get(guestRef);
+                        applyRegularRewards(transaction, ownerRef, ownerUser, guestRef, guestUser, party,
+                                newOwnerTotal, newGuestTotal, party.forfeitedBy);
+                    }
+
+                    return null;
+                })
+                .addOnSuccessListener(unused -> {
+                    if (callback != null) callback.onSuccess();
+                })
+                .addOnFailureListener(e -> {
+                    if (callback != null) callback.onError(messageOf(e, "Greska pri automatskom zatvaranju partije"));
                 });
     }
 
@@ -471,7 +556,7 @@ public class PartyRepository {
 
         if (finalGame) {
             updates.put("status", PartyData.STATUS_FINISHED);
-            updates.put("winner", determinePartyWinnerId(party, newOwnerTotal, newGuestTotal));
+            updates.put("winner", determinePartyWinnerId(party, newOwnerTotal, newGuestTotal, party.forfeitedBy));
             updates.put("rewardApplied", party.isRegular() && party.countsForStats);
         } else {
             int nextIndex = party.currentGameIndex + 1;
@@ -583,7 +668,15 @@ public class PartyRepository {
         return "draw";
     }
 
-    private String determinePartyWinnerId(PartyData party, int ownerTotal, int guestTotal) {
+    private String determinePartyWinnerId(PartyData party, int ownerTotal, int guestTotal, String forfeitedBy) {
+        if (forfeitedBy != null) {
+            if (forfeitedBy.equals(party.ownerId)) {
+                return party.guestId;
+            }
+            if (forfeitedBy.equals(party.guestId)) {
+                return party.ownerId;
+            }
+        }
         if (ownerTotal > guestTotal) {
             return party.ownerId;
         }

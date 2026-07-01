@@ -11,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.auth.FirebaseManager;
 import com.example.slagalica.challenge.ChallengeRepository;
+import com.example.slagalica.party.PartyData;
 import com.example.slagalica.party.PartyRepository;
 import com.example.slagalica.profile.ProfileStatsUpdater;
 import com.example.slagalica.spojnice.FirestoreSpojniceRepository;
@@ -69,8 +70,10 @@ public class SpojniceActivity extends AppCompatActivity {
     private boolean countsForStats = true;
     private boolean challengeMode = false;
     private boolean isOwner;
+    private boolean canControlGameFlow;
     private String currentUserId;
     private ListenerRegistration gameListener;
+    private ListenerRegistration partyListener;
     private CountDownTimer countDownTimer;
 
     private SpojniceSessionRepository.SessionInfo sessionInfo;
@@ -80,6 +83,8 @@ public class SpojniceActivity extends AppCompatActivity {
     private boolean waitingForGameRetryScheduled = false;
     private boolean phaseAdvanceRequested = false;
     private boolean challengeScoreSubmitted = false;
+    private boolean opponentForfeited = false;
+    private boolean returningToParty = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -101,6 +106,7 @@ public class SpojniceActivity extends AppCompatActivity {
         countsForStats = getIntent().getBooleanExtra("countsForStats", true);
         challengeMode = getIntent().getBooleanExtra("challengeMode", false);
         isOwner = getIntent().getBooleanExtra("isOwner", true);
+        canControlGameFlow = isOwner;
         if (gameDocId == null || gameDocId.trim().isEmpty()) {
             gameDocId = sessionId;
         }
@@ -193,7 +199,11 @@ public class SpojniceActivity extends AppCompatActivity {
             @Override
             public void onSuccess(SpojniceSessionRepository.SessionInfo info) {
                 sessionInfo = info;
+                if (currentUserId != null) {
+                    isOwner = currentUserId.equals(info.ownerId);
+                }
                 updatePlayerNames();
+                observePartyIfNeeded();
                 observeGame();
             }
 
@@ -221,9 +231,73 @@ public class SpojniceActivity extends AppCompatActivity {
         });
     }
 
+    private void observePartyIfNeeded() {
+        if (partyId == null || challengeMode) {
+            return;
+        }
+
+        partyListener = partyRepository.listenParty(partyId, new PartyRepository.PartyListener() {
+            @Override
+            public void onPartyChanged(PartyData party) {
+                runOnUiThread(() -> handlePartyUpdate(party));
+            }
+
+            @Override
+            public void onError(String message) {
+            }
+        });
+    }
+
+    private void handlePartyUpdate(PartyData party) {
+        if (party == null || currentUserId == null) {
+            return;
+        }
+
+        boolean partyMovedOn = !PartyData.STATUS_IN_PROGRESS.equals(party.status)
+                || (party.currentGameKey != null && !party.currentGameKey.equals(gameKey));
+        if (partyMovedOn) {
+            if (!returningToParty) {
+                returningToParty = true;
+                stopTimer();
+                finish();
+            }
+            return;
+        }
+
+        boolean currentUserForfeited = party.hasCurrentUserForfeited(currentUserId);
+        opponentForfeited = party.hasForfeit() && !currentUserForfeited;
+
+        boolean shouldControlFlow = party.isOwner(currentUserId);
+        if (party.ownerForfeited && currentUserId.equals(party.guestId)) {
+            shouldControlFlow = true;
+        }
+        if (party.guestForfeited && currentUserId.equals(party.ownerId)) {
+            shouldControlFlow = true;
+        }
+        canControlGameFlow = shouldControlFlow;
+
+        if (!opponentForfeited || currentState == null) {
+            if (currentState == null && opponentForfeited && sessionInfo != null && canControlGameFlow) {
+                initializeGame();
+            }
+            return;
+        }
+
+        if (shouldSkipOpponentTurn(currentState)) {
+            advanceAfterOpponentForfeit(currentState);
+            return;
+        }
+
+        if ("round_result".equals(currentState.phase)) {
+            btnNextRound.setEnabled(canControlGameFlow);
+        } else {
+            updateStatusText(currentState);
+        }
+    }
+
     private void handleGameState(SpojniceSessionRepository.GameState gameState) {
         if (gameState == null) {
-            if (isOwner && sessionInfo != null) {
+            if (canControlGameFlow && sessionInfo != null) {
                 initializeGame();
             } else {
                 showWaitingForGameState();
@@ -245,6 +319,11 @@ public class SpojniceActivity extends AppCompatActivity {
         } else {
             refreshBoard(gameState);
             updateStatusText(gameState);
+        }
+
+        if (opponentForfeited && shouldSkipOpponentTurn(gameState)) {
+            advanceAfterOpponentForfeit(gameState);
+            return;
         }
 
         lastObservedPhase = gameState.phase;
@@ -289,7 +368,7 @@ public class SpojniceActivity extends AppCompatActivity {
             tvRoundLabel.setText("RUNDA 2/2 - SPOJNICE");
         } else if ("round_result".equals(gameState.phase)) {
             stopTimer();
-            btnNextRound.setEnabled(isOwner);
+            btnNextRound.setEnabled(canControlGameFlow);
             btnNextRound.setText(gameState.currentRound == 1 ? "Pokreni rundu 2" : "Prikazi rezultat");
             updateStatusText(gameState);
             return;
@@ -325,7 +404,7 @@ public class SpojniceActivity extends AppCompatActivity {
                 && !"round_result".equals(gameState.phase)
                 && !"finished".equals(gameState.phase);
         setSelectionEnabled(selectionAllowed);
-        btnNextRound.setEnabled(isOwner && "round_result".equals(gameState.phase));
+        btnNextRound.setEnabled(canControlGameFlow && "round_result".equals(gameState.phase));
     }
 
     private void selectLeft(int leftIndex) {
@@ -417,7 +496,7 @@ public class SpojniceActivity extends AppCompatActivity {
     }
 
     private void handleNextPhaseClick() {
-        if (currentState == null || !isOwner || !"round_result".equals(currentState.phase)) {
+        if (currentState == null || !canControlGameFlow || !"round_result".equals(currentState.phase)) {
             return;
         }
 
@@ -484,11 +563,11 @@ public class SpojniceActivity extends AppCompatActivity {
         }
 
         if ("round1_owner_turn".equals(gameState.phase) && attemptsUsed >= ITEMS_PER_ROUND) {
-            return challengeMode ? "round_result" : "round1_guest_cleanup";
+            return challengeMode || (opponentForfeited && !isOwner) ? "round_result" : "round1_guest_cleanup";
         }
 
         if ("round2_guest_turn".equals(gameState.phase) && attemptsUsed >= ITEMS_PER_ROUND) {
-            return challengeMode ? "round_result" : "round2_owner_cleanup";
+            return challengeMode || (opponentForfeited && isOwner) ? "round_result" : "round2_owner_cleanup";
         }
 
         if ("round1_guest_cleanup".equals(gameState.phase) || "round2_owner_cleanup".equals(gameState.phase)) {
@@ -550,11 +629,11 @@ public class SpojniceActivity extends AppCompatActivity {
         String nextPhase = "round_result";
 
         if ("round1_owner_turn".equals(currentState.phase)) {
-            nextPhase = challengeMode ? "round_result" : "round1_guest_cleanup";
+            nextPhase = challengeMode || (opponentForfeited && !isOwner) ? "round_result" : "round1_guest_cleanup";
         } else if ("round1_guest_cleanup".equals(currentState.phase)) {
             nextPhase = "round_result";
         } else if ("round2_guest_turn".equals(currentState.phase)) {
-            nextPhase = challengeMode ? "round_result" : "round2_owner_cleanup";
+            nextPhase = challengeMode || (opponentForfeited && isOwner) ? "round_result" : "round2_owner_cleanup";
         } else if ("round2_owner_cleanup".equals(currentState.phase)) {
             nextPhase = "round_result";
         }
@@ -626,6 +705,60 @@ public class SpojniceActivity extends AppCompatActivity {
         }
     }
 
+    private boolean shouldSkipOpponentTurn(SpojniceSessionRepository.GameState gameState) {
+        if (!opponentForfeited || gameState == null || phaseAdvanceRequested) {
+            return false;
+        }
+
+        if ("round1_owner_turn".equals(gameState.phase) && !isOwner) {
+            return true;
+        }
+
+        return "round2_guest_turn".equals(gameState.phase) && isOwner;
+    }
+
+    private void advanceAfterOpponentForfeit(SpojniceSessionRepository.GameState gameState) {
+        if (!shouldSkipOpponentTurn(gameState)) {
+            return;
+        }
+
+        phaseAdvanceRequested = true;
+        String nextPhase;
+        if ("round1_owner_turn".equals(gameState.phase)) {
+            nextPhase = gameState.solvedLeftIndices.size() == ITEMS_PER_ROUND ? "round_result" : "round1_guest_cleanup";
+        } else {
+            nextPhase = gameState.solvedLeftIndices.size() == ITEMS_PER_ROUND ? "round_result" : "round2_owner_cleanup";
+        }
+
+        sessionRepository.updateAfterMatch(
+                gameDocId,
+                nextPhase,
+                gameState.ownerScore,
+                gameState.guestScore,
+                gameState.attemptsUsed,
+                new ArrayList<>(gameState.solvedLeftIndices),
+                new ArrayList<>(gameState.solvedRightIndices),
+                new ArrayList<>(gameState.ownerSolvedLeftIndices),
+                new ArrayList<>(gameState.ownerSolvedRightIndices),
+                new ArrayList<>(gameState.guestSolvedLeftIndices),
+                new ArrayList<>(gameState.guestSolvedRightIndices),
+                gameState.ownerAttemptCount,
+                gameState.guestAttemptCount,
+                "Protivnik je odustao. Nastavljate bez cekanja.",
+                new SpojniceSessionRepository.RepositoryCallback() {
+                    @Override
+                    public void onSuccess() {
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        phaseAdvanceRequested = false;
+                        runOnUiThread(() -> Toast.makeText(SpojniceActivity.this, message, Toast.LENGTH_SHORT).show());
+                    }
+                }
+        );
+    }
+
     private void showWaitingForGameState() {
         currentState = null;
         stopTimer();
@@ -635,7 +768,7 @@ public class SpojniceActivity extends AppCompatActivity {
     }
 
     private void scheduleGameRefreshRetry() {
-        if (waitingForGameRetryScheduled || isOwner) {
+        if (waitingForGameRetryScheduled || canControlGameFlow) {
             return;
         }
 
@@ -680,7 +813,7 @@ public class SpojniceActivity extends AppCompatActivity {
     }
 
     private void finishPartyGameIfNeeded(int ownerScore, int guestScore) {
-        if (partyId == null || !isOwner) {
+        if (partyId == null || !canControlGameFlow) {
             return;
         }
 
@@ -789,6 +922,9 @@ public class SpojniceActivity extends AppCompatActivity {
         }
 
         String resultMessage = gameState.resultMessage != null ? gameState.resultMessage.trim() : "";
+        if (opponentForfeited && isCurrentPlayerTurn(gameState) && resultMessage.isEmpty()) {
+            resultMessage = "Protivnik je odustao. Nastavljate bez cekanja.";
+        }
         if (!resultMessage.isEmpty()) {
             tvSelected.setText(String.format(Locale.getDefault(), "%s %s", baseMessage, resultMessage).trim());
         } else {
@@ -916,6 +1052,9 @@ public class SpojniceActivity extends AppCompatActivity {
         stopTimer();
         if (gameListener != null) {
             gameListener.remove();
+        }
+        if (partyListener != null) {
+            partyListener.remove();
         }
     }
 }
