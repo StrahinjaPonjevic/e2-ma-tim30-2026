@@ -2,6 +2,7 @@ package com.example.slagalica.profile;
 
 import androidx.annotation.NonNull;
 
+import com.example.slagalica.leagues.LeagueProgressionHelper;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.Timestamp;
@@ -66,6 +67,9 @@ public class UserProfileRepository {
         defaults.put("avatarFrameCycleMonth", "");
         defaults.put("tokens", 5);
         defaults.put("stars", 0);
+        defaults.put("leagueLevel", 0);
+        defaults.put("lastLeagueChangeDirection", "");
+        defaults.put("lastLeagueNotificationId", "");
         defaults.put("starTokenProgress", 0);
         defaults.put("lastDailyTokenGrant", null);
         defaults.put("matchesPlayed", 0);
@@ -117,8 +121,12 @@ public class UserProfileRepository {
                         return false;
                     }
 
+                    int stars = intValue(snapshot.get("stars"));
+                    int leagueLevel = LeagueProgressionHelper.resolveLeagueLevel(stars);
+                    int dailyTokens = LeagueProgressionHelper.dailyTokenGrant(stars);
                     Map<String, Object> updates = new HashMap<>();
-                    updates.put("tokens", FieldValue.increment(5));
+                    updates.put("tokens", FieldValue.increment(dailyTokens));
+                    updates.put("leagueLevel", leagueLevel);
                     updates.put("lastDailyTokenGrant", FieldValue.serverTimestamp());
                     transaction.update(userRef, updates);
                     return true;
@@ -159,6 +167,11 @@ public class UserProfileRepository {
         Map<String, Object> korakPoKorak = stats != null && stats.get("korakPoKorak") instanceof Map
                 ? (Map<String, Object>) stats.get("korakPoKorak") : null;
 
+        int stars = intValue(snapshot.get("stars"));
+        int leagueLevel = snapshot.contains("leagueLevel")
+                ? intValue(snapshot.get("leagueLevel"))
+                : LeagueProgressionHelper.resolveLeagueLevel(stars);
+
         return new UserProfile(
                 snapshot.getId(),
                 valueOrDefault(snapshot.getString("username"), "Nepoznat korisnik"),
@@ -168,7 +181,8 @@ public class UserProfileRepository {
                 intValue(snapshot.get("avatarFrameRank")),
                 valueOrDefault(snapshot.getString("avatarFrameCycleMonth"), ""),
                 snapshot.contains("tokens") ? intValue(snapshot.get("tokens")) : 5,
-                intValue(snapshot.get("stars")),
+                stars,
+                leagueLevel,
                 intValue(snapshot.get("matchesPlayed")),
                 intValue(snapshot.get("wins")),
                 intValue(snapshot.get("losses")),

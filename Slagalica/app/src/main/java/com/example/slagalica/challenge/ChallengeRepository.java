@@ -1,5 +1,6 @@
 package com.example.slagalica.challenge;
 
+import com.example.slagalica.leagues.LeagueProgressionHelper;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -92,6 +93,8 @@ public class ChallengeRepository {
         db.runTransaction(transaction -> {
                     DocumentSnapshot user = transaction.get(userRef);
                     ensureFunds(user, starsStake, tokensStake);
+                    int oldStars = intValue(user.get("stars"));
+                    int newStars = Math.max(0, oldStars - starsStake);
 
                     Map<String, Object> participants = new HashMap<>();
                     participants.put(creatorId, creatorUsername);
@@ -113,8 +116,10 @@ public class ChallengeRepository {
                     challenge.put("createdAt", FieldValue.serverTimestamp());
                     challenge.put("updatedAt", FieldValue.serverTimestamp());
 
-                    transaction.update(userRef, "stars", FieldValue.increment(-starsStake),
-                            "tokens", FieldValue.increment(-tokensStake));
+                    Map<String, Object> userUpdates = LeagueProgressionHelper
+                            .buildStarsAndLeagueUpdate(oldStars, newStars);
+                    userUpdates.put("tokens", FieldValue.increment(-tokensStake));
+                    transaction.update(userRef, userUpdates);
                     transaction.set(challengeRef, challenge);
                     return challengeRef.getId();
                 })
@@ -143,9 +148,12 @@ public class ChallengeRepository {
 
                     DocumentSnapshot user = transaction.get(userRef);
                     ensureFunds(user, challenge.starsStake, challenge.tokensStake);
-                    transaction.update(userRef,
-                            "stars", FieldValue.increment(-challenge.starsStake),
-                            "tokens", FieldValue.increment(-challenge.tokensStake));
+                    int oldStars = intValue(user.get("stars"));
+                    int newStars = Math.max(0, oldStars - challenge.starsStake);
+                    Map<String, Object> userUpdates = LeagueProgressionHelper
+                            .buildStarsAndLeagueUpdate(oldStars, newStars);
+                    userUpdates.put("tokens", FieldValue.increment(-challenge.tokensStake));
+                    transaction.update(userRef, userUpdates);
                     transaction.update(challengeRef,
                             "participants." + uid, username,
                             "runs." + uid, defaultRunMap(),
@@ -311,10 +319,11 @@ public class ChallengeRepository {
     }
 
     private Map<String, Object> payoutUpdates(DocumentSnapshot user, int wonStars, int wonTokens) {
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("stars", FieldValue.increment(wonStars));
+        int oldStars = intValue(user.get("stars"));
+        int newStars = Math.max(0, oldStars + wonStars);
+        Map<String, Object> updates = LeagueProgressionHelper.buildStarsAndLeagueUpdate(
+                oldStars, newStars);
         updates.put("tokens", FieldValue.increment(wonTokens));
-        updates.put("updatedAt", FieldValue.serverTimestamp());
 
         if (wonStars > 0) {
             String currentMonth = currentMonthKey();
