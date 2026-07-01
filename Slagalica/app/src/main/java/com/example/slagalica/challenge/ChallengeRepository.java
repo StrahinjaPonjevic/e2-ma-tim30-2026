@@ -9,9 +9,11 @@ import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.Query;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class ChallengeRepository {
@@ -281,7 +283,7 @@ public class ChallengeRepository {
 
     private void applyPayouts(com.google.firebase.firestore.Transaction transaction,
                               ChallengeData challenge,
-                              Winners winners) {
+                              Winners winners) throws FirebaseFirestoreException {
         int participantCount = challenge.participants.size();
         int totalStars = challenge.starsStake * participantCount;
         int totalTokens = challenge.tokensStake * participantCount;
@@ -289,16 +291,45 @@ public class ChallengeRepository {
         int winnerTokens = (int) Math.floor(totalTokens * 0.75);
 
         DocumentReference winnerRef = db.collection(USERS).document(winners.winnerId);
-        transaction.update(winnerRef,
-                "stars", FieldValue.increment(winnerStars),
-                "tokens", FieldValue.increment(winnerTokens));
-
+        DocumentSnapshot winnerSnapshot = transaction.get(winnerRef);
+        DocumentReference secondRef = null;
+        DocumentSnapshot secondSnapshot = null;
         if (winners.secondPlaceId != null && !winners.secondPlaceId.equals(winners.winnerId)) {
-            DocumentReference secondRef = db.collection(USERS).document(winners.secondPlaceId);
-            transaction.update(secondRef,
-                    "stars", FieldValue.increment(challenge.starsStake),
-                    "tokens", FieldValue.increment(challenge.tokensStake));
+            secondRef = db.collection(USERS).document(winners.secondPlaceId);
+            secondSnapshot = transaction.get(secondRef);
         }
+
+        Map<String, Object> winnerUpdates = payoutUpdates(
+                winnerSnapshot, winnerStars, winnerTokens);
+        transaction.update(winnerRef, winnerUpdates);
+
+        if (secondRef != null && secondSnapshot != null) {
+            Map<String, Object> secondUpdates = payoutUpdates(
+                    secondSnapshot, challenge.starsStake, challenge.tokensStake);
+            transaction.update(secondRef, secondUpdates);
+        }
+    }
+
+    private Map<String, Object> payoutUpdates(DocumentSnapshot user, int wonStars, int wonTokens) {
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("stars", FieldValue.increment(wonStars));
+        updates.put("tokens", FieldValue.increment(wonTokens));
+        updates.put("updatedAt", FieldValue.serverTimestamp());
+
+        if (wonStars > 0) {
+            String currentMonth = currentMonthKey();
+            int currentMonthlyStars = currentMonth.equals(user.getString("monthlyRankMonth"))
+                    ? intValue(user.get("monthlyStars")) : 0;
+            updates.put("monthlyRankMonth", currentMonth);
+            updates.put("monthlyStars", currentMonthlyStars + wonStars);
+        }
+        return updates;
+    }
+
+    private String currentMonthKey() {
+        Calendar calendar = Calendar.getInstance();
+        return String.format(Locale.US, "%04d-%02d",
+                calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH) + 1);
     }
 
     private Winners resolveWinners(Map<String, Object> scores) {

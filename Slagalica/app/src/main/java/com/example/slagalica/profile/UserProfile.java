@@ -7,6 +7,8 @@ public class UserProfile {
     public final String email;
     public final String region;
     public final int avatarTheme;
+    public final int avatarFrameRank;
+    public final String avatarFrameCycleMonth;
     public final int tokens;
     public final int stars;
     public final int matchesPlayed;
@@ -18,6 +20,7 @@ public class UserProfile {
     public final GameStats korakPoKorak;
 
     public UserProfile(String uid, String username, String email, String region, int avatarTheme,
+                       int avatarFrameRank, String avatarFrameCycleMonth,
                        int tokens, int stars, int matchesPlayed, int wins, int losses,
                        GameStats koZnaZna, GameStats spojnice, GameStats mojBroj, GameStats korakPoKorak) {
         this.uid = uid;
@@ -25,6 +28,8 @@ public class UserProfile {
         this.email = email;
         this.region = region;
         this.avatarTheme = avatarTheme;
+        this.avatarFrameRank = avatarFrameRank;
+        this.avatarFrameCycleMonth = avatarFrameCycleMonth;
         this.tokens = tokens;
         this.stars = stars;
         this.matchesPlayed = matchesPlayed;

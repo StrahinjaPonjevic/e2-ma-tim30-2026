@@ -9,11 +9,12 @@ import com.example.slagalica.party.FriendlyInviteActivity;
 import com.example.slagalica.party.FriendlyInviteRepository;
 import com.example.slagalica.profile.UserProfile;
 import com.example.slagalica.profile.UserProfileRepository;
+import com.example.slagalica.regions.RegionAvatarFrameHelper;
+import com.example.slagalica.regions.RegionMapActivity;
 
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
@@ -48,6 +49,7 @@ public class MainActivity extends AppCompatActivity {
     private Button btnOpenFriendly;
     private Button btnOpenChat;
     private Button btnOpenChallenges;
+    private Button btnOpenRegions;
     private TextView tvLoggedInUser;
     private TextView tvTokensStars;
     private FirebaseManager firebaseManager;
@@ -79,6 +81,7 @@ public class MainActivity extends AppCompatActivity {
         btnOpenFriendly = findViewById(R.id.btnOpenFriendly);
         btnOpenChat = findViewById(R.id.btnOpenChat);
         btnOpenChallenges = findViewById(R.id.btnOpenChallenges);
+        btnOpenRegions = findViewById(R.id.btnOpenRegions);
         tvLoggedInUser = findViewById(R.id.tvLoggedInUser);
         tvTokensStars = findViewById(R.id.tvTokensStars);
 
@@ -136,6 +139,7 @@ public class MainActivity extends AppCompatActivity {
         btnOpenFriendly.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, FriendlyInviteActivity.class)));
         btnOpenChat.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, ChatActivity.class)));
         btnOpenChallenges.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, ChallengeActivity.class)));
+        btnOpenRegions.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, RegionMapActivity.class)));
     }
 
     private void loadProfileForMain(FirebaseUser user) {
@@ -190,7 +194,8 @@ public class MainActivity extends AppCompatActivity {
 
         btnOpenProfile.setText(initials);
         btnOpenProfile.setTextColor(Color.WHITE);
-        btnOpenProfile.setBackgroundTintList(ColorStateList.valueOf(AVATAR_COLORS[safeIndex]));
+        RegionAvatarFrameHelper.apply(btnOpenProfile, AVATAR_COLORS[safeIndex],
+                profile.avatarFrameRank, profile.avatarFrameCycleMonth);
     }
 
     private String extractInitials(String username) {

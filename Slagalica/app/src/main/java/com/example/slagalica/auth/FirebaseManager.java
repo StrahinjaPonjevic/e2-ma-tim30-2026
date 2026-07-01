@@ -10,10 +10,13 @@ import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QuerySnapshot;
 
+import com.example.slagalica.regions.RegionDefinition;
+
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Random;
 
 public class FirebaseManager {
 
@@ -100,10 +103,18 @@ public class FirebaseManager {
 
     private void saveUserToFirestore(String uid, String email, String username, String region, AuthCallback callback) {
         Map<String, Object> userData = new HashMap<>();
+        RegionDefinition regionDefinition = RegionDefinition.findByDisplayName(region);
+        float[] mapPoint = regionDefinition != null
+                ? regionDefinition.randomPoint(new Random())
+                : new float[]{0.5f, 0.5f};
         userData.put("email", email);
         userData.put("username", username);
         userData.put("region", region);
+        userData.put("mapPointX", mapPoint[0]);
+        userData.put("mapPointY", mapPoint[1]);
         userData.put("avatarTheme", 0);
+        userData.put("avatarFrameRank", 0);
+        userData.put("avatarFrameCycleMonth", "");
         userData.put("tokens", 5);
         userData.put("stars", 0);
         userData.put("starTokenProgress", 0);
@@ -115,6 +126,8 @@ public class FirebaseManager {
         userData.put("matchesPlayed", 0);
         userData.put("wins", 0);
         userData.put("losses", 0);
+        userData.put("createdAt", FieldValue.serverTimestamp());
+        userData.put("updatedAt", FieldValue.serverTimestamp());
 
         Map<String, Object> stats = new HashMap<>();
         stats.put("koZnaZna", createStatsMap());
