@@ -10,7 +10,9 @@ import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QuerySnapshot;
 
+import java.util.Calendar;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public class FirebaseManager {
@@ -106,6 +108,10 @@ public class FirebaseManager {
         userData.put("stars", 0);
         userData.put("starTokenProgress", 0);
         userData.put("lastDailyTokenGrant", FieldValue.serverTimestamp());
+        userData.put("monthlyRankMonth", currentMonthKey());
+        userData.put("monthlyStars", 0);
+        userData.put("isLoggedIn", false);
+        userData.put("activePartyId", null);
         userData.put("matchesPlayed", 0);
         userData.put("wins", 0);
         userData.put("losses", 0);
@@ -188,7 +194,7 @@ public class FirebaseManager {
                         if (task.isSuccessful()) {
                             FirebaseUser user = mAuth.getCurrentUser();
                             if (user != null && user.isEmailVerified()) {
-                                callback.onSuccess(email);
+                                setLoggedInStatus(user.getUid(), true, () -> callback.onSuccess(email));
                             } else if (user != null) {
                                 mAuth.signOut();
                                 callback.onError("Potvrdite email pre prijave. Link je poslat na vaš email.");
@@ -275,7 +281,31 @@ public class FirebaseManager {
     }
 
     public void logout() {
+        logout(null);
+    }
+
+    public void logout(AuthCallback callback) {
+        FirebaseUser user = mAuth.getCurrentUser();
+        if (user != null && !user.isAnonymous()) {
+            setLoggedInStatus(user.getUid(), false, () -> {
+                mAuth.signOut();
+                if (callback != null) {
+                    callback.onSuccess();
+                }
+            });
+            return;
+        }
         mAuth.signOut();
+        if (callback != null) {
+            callback.onSuccess();
+        }
+    }
+
+    public void markCurrentUserLoggedIn() {
+        FirebaseUser user = mAuth.getCurrentUser();
+        if (user != null && !user.isAnonymous()) {
+            setLoggedInStatus(user.getUid(), true, null);
+        }
     }
 
     public FirebaseUser getCurrentUser() {
@@ -298,5 +328,25 @@ public class FirebaseManager {
                         callback.onError("Korisnik nije pronađen u bazi");
                     }
                 });
+    }
+
+    private void setLoggedInStatus(String uid, boolean isLoggedIn, Runnable done) {
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("isLoggedIn", isLoggedIn);
+        updates.put("updatedAt", FieldValue.serverTimestamp());
+        db.collection(USERS_COLLECTION).document(uid)
+                .update(updates)
+                .addOnCompleteListener(task -> {
+                    if (done != null) {
+                        done.run();
+                    }
+                });
+    }
+
+    private String currentMonthKey() {
+        Calendar calendar = Calendar.getInstance();
+        return String.format(Locale.US, "%04d-%02d",
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH) + 1);
     }
 }

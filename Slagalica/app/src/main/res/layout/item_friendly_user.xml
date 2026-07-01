@@ -8,9 +8,20 @@
     android:orientation="horizontal"
     android:padding="12dp">
 
+    <TextView
+        android:id="@+id/tvFriendlyUserAvatar"
+        android:layout_width="46dp"
+        android:layout_height="46dp"
+        android:gravity="center"
+        android:text="IG"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
         android:layout_weight="1"
         android:orientation="vertical">
 
@@ -24,19 +35,42 @@
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/tvFriendlyUserRegion"
+            android:id="@+id/tvFriendlyUserStats"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
-            android:text="Region"
-            android:textColor="#666666"
+            android:text="Rang: #0 | Zvezde: 0 | Bronzana liga"
+            android:textColor="#555555"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/tvFriendlyUserStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="Nije ulogovan"
+            android:textColor="#777777"
             android:textSize="13sp" />
     </LinearLayout>
 
-    <Button
-        android:id="@+id/btnInviteFriendlyUser"
+    <LinearLayout
         android:layout_width="wrap_content"
-        android:layout_height="48dp"
-        android:text="Pozovi"
-        android:textAllCaps="false" />
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <Button
+            android:id="@+id/btnInviteFriendlyUser"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:text="Pozovi"
+            android:textAllCaps="false" />
+
+        <Button
+            android:id="@+id/btnRemoveFriendlyUser"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:layout_marginTop="4dp"
+            android:text="Obrisi"
+            android:textAllCaps="false" />
+    </LinearLayout>
 </LinearLayout>

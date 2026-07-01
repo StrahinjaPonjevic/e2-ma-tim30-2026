@@ -112,11 +112,22 @@ public class ProfileActivity extends AppCompatActivity {
         btnEditAvatar.setOnClickListener(v -> openAvatarPicker());
 
         btnLogout.setOnClickListener(v -> {
-            firebaseManager.logout();
-            Intent intent = new Intent(ProfileActivity.this, MainActivity.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(intent);
-            finish();
+            firebaseManager.logout(new FirebaseManager.AuthCallback() {
+                @Override
+                public void onSuccess() {
+                    runOnUiThread(() -> {
+                        Intent intent = new Intent(ProfileActivity.this, MainActivity.class);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        startActivity(intent);
+                        finish();
+                    });
+                }
+
+                @Override
+                public void onError(String message) {
+                    runOnUiThread(() -> Toast.makeText(ProfileActivity.this, message, Toast.LENGTH_SHORT).show());
+                }
+            });
         });
 
         btnBackToMain.setOnClickListener(v -> finish());

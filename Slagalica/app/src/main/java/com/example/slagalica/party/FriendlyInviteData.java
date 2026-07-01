@@ -8,6 +8,7 @@ public class FriendlyInviteData {
     public static final String STATUS_ACCEPTED = "accepted";
     public static final String STATUS_DECLINED = "declined";
     public static final String STATUS_EXPIRED = "expired";
+    public static final String STATUS_CANCELLED = "cancelled";
 
     public String inviteId;
     public String inviterId;

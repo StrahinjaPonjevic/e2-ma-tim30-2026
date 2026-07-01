@@ -21,6 +21,7 @@ import java.util.Map;
 
 public class FriendlyInviteRepository {
     private static final String USERS = "users";
+    private static final String FRIENDS = "friends";
     private static final String INVITES = "friendly_invites";
     private static final String PARTIES = "parties";
     private static final String SESSIONS = "sessions";
@@ -61,6 +62,7 @@ public class FriendlyInviteRepository {
         void onAccepted(String partyId);
         void onDeclined();
         void onExpired();
+        void onCancelled();
         void onPending();
         void onError(String message);
     }
@@ -128,6 +130,18 @@ public class FriendlyInviteRepository {
             callback.onError("Izaberite drugog igraca");
             return;
         }
+
+        createInvite(inviterId, inviterUsername, inviteeId, inviteeUsername, callback);
+    }
+
+    private void createInvite(String inviterId, String inviterUsername, String inviteeId,
+                              String inviteeUsername, SendInviteCallback callback) {
+        DocumentReference inviteRef = db.collection(INVITES).document(inviterId);
+        DocumentReference friendshipRef = db.collection(USERS).document(inviterId)
+                .collection(FRIENDS).document(inviteeId);
+        DocumentReference inviterRef = db.collection(USERS).document(inviterId);
+        DocumentReference inviteeRef = db.collection(USERS).document(inviteeId);
+
         Map<String, Object> invite = new HashMap<>();
         invite.put("inviterId", inviterId);
         invite.put("inviterUsername", valueOrDefault(inviterUsername, "Igrac"));
@@ -139,9 +153,36 @@ public class FriendlyInviteRepository {
         invite.put("updatedAt", FieldValue.serverTimestamp());
         invite.put("expiresAt", new Timestamp(new Date(System.currentTimeMillis() + INVITE_TIMEOUT_MS)));
 
-        db.collection(INVITES)
-                .add(invite)
-                .addOnSuccessListener(ref -> callback.onSuccess(ref.getId()))
+        db.runTransaction(transaction -> {
+                    DocumentSnapshot existingInvite = transaction.get(inviteRef);
+                    DocumentSnapshot friendship = transaction.get(friendshipRef);
+                    if (!friendship.exists()) {
+                        throw abort("Igraca najpre dodajte u prijatelje");
+                    }
+                    DocumentSnapshot inviter = transaction.get(inviterRef);
+                    DocumentSnapshot invitee = transaction.get(inviteeRef);
+                    if (!inviter.exists() || !invitee.exists()) {
+                        throw abort("Korisnik nije pronadjen");
+                    }
+                    if (hasActiveParty(inviter)) {
+                        throw abort("Vec ucestvujete u partiji");
+                    }
+                    if (!Boolean.TRUE.equals(invitee.getBoolean("isLoggedIn"))) {
+                        throw abort("Prijatelj nije ulogovan");
+                    }
+                    if (hasActiveParty(invitee)) {
+                        throw abort("Prijatelj je vec u partiji");
+                    }
+                    if (existingInvite.exists()) {
+                        FriendlyInviteData existing = FriendlyInviteData.fromSnapshot(existingInvite);
+                        if (FriendlyInviteData.STATUS_PENDING.equals(existing.status) && !existing.isExpired()) {
+                            throw abort("Vec imate poslat zahtev za partiju");
+                        }
+                    }
+                    transaction.set(inviteRef, invite);
+                    return inviteRef.getId();
+                })
+                .addOnSuccessListener(callback::onSuccess)
                 .addOnFailureListener(e -> callback.onError(messageOf(e, "Poziv nije poslat")));
     }
 
@@ -158,12 +199,16 @@ public class FriendlyInviteRepository {
                     }
 
                     FriendlyInviteData invite = FriendlyInviteData.fromSnapshot(snapshot);
-                    if (invite.isExpired() || FriendlyInviteData.STATUS_EXPIRED.equals(invite.status)) {
-                        listener.onExpired();
-                        return;
-                    }
                     if (FriendlyInviteData.STATUS_DECLINED.equals(invite.status)) {
                         listener.onDeclined();
+                        return;
+                    }
+                    if (FriendlyInviteData.STATUS_CANCELLED.equals(invite.status)) {
+                        listener.onCancelled();
+                        return;
+                    }
+                    if (invite.isExpired() || FriendlyInviteData.STATUS_EXPIRED.equals(invite.status)) {
+                        listener.onExpired();
                         return;
                     }
                     if (FriendlyInviteData.STATUS_ACCEPTED.equals(invite.status)
@@ -200,11 +245,28 @@ public class FriendlyInviteRepository {
                         throw abort("Poziv je istekao");
                     }
 
+                    DocumentReference txInviterRef = db.collection(USERS).document(invite.inviterId);
+                    DocumentReference txInviteeRef = db.collection(USERS).document(invite.inviteeId);
+                    DocumentSnapshot inviter = transaction.get(txInviterRef);
+                    DocumentSnapshot invitee = transaction.get(txInviteeRef);
+                    if (!inviter.exists() || !invitee.exists()) {
+                        throw abort("Korisnik nije pronadjen");
+                    }
+                    if (hasActiveParty(inviter) || hasActiveParty(invitee)) {
+                        throw abort("Jedan od igraca je vec u partiji");
+                    }
+
                     transaction.set(partyRef, buildPartyMap(invite));
                     transaction.set(sessionRef, buildSessionMap(invite));
                     transaction.update(inviteRef,
                             "status", FriendlyInviteData.STATUS_ACCEPTED,
                             "partyId", partyRef.getId(),
+                            "updatedAt", FieldValue.serverTimestamp());
+                    transaction.update(txInviterRef,
+                            "activePartyId", partyRef.getId(),
+                            "updatedAt", FieldValue.serverTimestamp());
+                    transaction.update(txInviteeRef,
+                            "activePartyId", partyRef.getId(),
                             "updatedAt", FieldValue.serverTimestamp());
                     return partyRef.getId();
                 })
@@ -216,6 +278,39 @@ public class FriendlyInviteRepository {
         updateInviteStatus(inviteId, FriendlyInviteData.STATUS_DECLINED, callback);
     }
 
+    public void cancelInvite(String inviteId, String inviterId, OperationCallback callback) {
+        DocumentReference inviteRef = db.collection(INVITES).document(inviteId);
+        db.runTransaction(transaction -> {
+                    DocumentSnapshot inviteSnap = transaction.get(inviteRef);
+                    if (!inviteSnap.exists()) {
+                        throw abort("Poziv nije pronadjen");
+                    }
+                    FriendlyInviteData invite = FriendlyInviteData.fromSnapshot(inviteSnap);
+                    if (!inviterId.equals(invite.inviterId)) {
+                        throw abort("Samo posiljalac moze prekinuti zahtev");
+                    }
+                    if (!FriendlyInviteData.STATUS_PENDING.equals(invite.status)) {
+                        throw abort("Poziv vise nije aktivan");
+                    }
+                    if (invite.isExpired()) {
+                        transaction.update(inviteRef,
+                                "status", FriendlyInviteData.STATUS_EXPIRED,
+                                "updatedAt", FieldValue.serverTimestamp());
+                        return null;
+                    }
+                    transaction.update(inviteRef,
+                            "status", FriendlyInviteData.STATUS_CANCELLED,
+                            "updatedAt", FieldValue.serverTimestamp());
+                    return null;
+                })
+                .addOnSuccessListener(unused -> {
+                    if (callback != null) callback.onSuccess();
+                })
+                .addOnFailureListener(e -> {
+                    if (callback != null) callback.onError(messageOf(e, "Zahtev nije prekinut"));
+                });
+    }
+
     public void expireInvite(String inviteId, OperationCallback callback) {
         updateInviteStatus(inviteId, FriendlyInviteData.STATUS_EXPIRED, callback);
     }
@@ -223,24 +318,28 @@ public class FriendlyInviteRepository {
     public static void startNotificationListener(Context context, String uid) {
         stopNotificationListener();
         notificationInitialSnapshot = true;
+        Context appContext = context.getApplicationContext() != null ? context.getApplicationContext() : context;
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         notificationListener = db.collection(INVITES)
                 .whereEqualTo("inviteeId", uid)
                 .whereEqualTo("status", FriendlyInviteData.STATUS_PENDING)
                 .limit(5)
                 .addSnapshotListener((snapshot, error) -> {
-                    if (error != null || snapshot == null || snapshot.isEmpty()) {
+                    if (error != null) {
                         return;
                     }
                     if (notificationInitialSnapshot) {
                         notificationInitialSnapshot = false;
                         return;
                     }
+                    if (snapshot == null || snapshot.isEmpty()) {
+                        return;
+                    }
                     for (DocumentSnapshot doc : snapshot.getDocuments()) {
                         FriendlyInviteData invite = FriendlyInviteData.fromSnapshot(doc);
                         if (!invite.isExpired()) {
                             NotificationHelper.send(
-                                    context,
+                                    appContext,
                                     NotificationChannelManager.CHANNEL_OTHER,
                                     "Prijateljska partija",
                                     invite.inviterUsername + " vas poziva na partiju.",
@@ -316,6 +415,11 @@ public class FriendlyInviteRepository {
 
     private String valueOrDefault(String value, String fallback) {
         return value != null && !value.trim().isEmpty() ? value : fallback;
+    }
+
+    private boolean hasActiveParty(DocumentSnapshot user) {
+        String activePartyId = user.getString("activePartyId");
+        return activePartyId != null && !activePartyId.trim().isEmpty();
     }
 
     private String messageOf(Exception e, String fallback) {

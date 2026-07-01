@@ -117,6 +117,7 @@ public class MainActivity extends AppCompatActivity {
         loggedInSection.setVisibility(View.VISIBLE);
         tvLoggedInUser.setText("Dobrodosli!");
         tvTokensStars.setText("Ucitavanje profila...");
+        firebaseManager.markCurrentUserLoggedIn();
 
         profileRepository.grantDailyTokensIfNeeded(user.getUid(), new UserProfileRepository.OperationCallback() {
             @Override

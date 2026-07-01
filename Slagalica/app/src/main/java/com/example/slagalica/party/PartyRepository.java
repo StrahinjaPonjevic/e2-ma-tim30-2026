@@ -11,7 +11,9 @@ import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.Transaction;
 
+import java.util.Calendar;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public class PartyRepository {
@@ -89,6 +91,9 @@ public class PartyRepository {
     public void createFriendlyParty(String inviterId, String inviterUsername, String friendId,
                                     String friendUsername, CreatePartyCallback callback) {
         DocumentReference partyRef = db.collection(PARTIES).document();
+        DocumentReference inviterRef = db.collection(USERS).document(inviterId);
+        DocumentReference friendRef = db.collection(USERS).document(friendId);
+        DocumentReference sessionRef = db.collection(SESSIONS).document(partyRef.getId());
         Map<String, Object> party = buildPartyMap(
                 inviterId,
                 inviterUsername,
@@ -100,11 +105,26 @@ public class PartyRepository {
         );
 
         Map<String, Object> session = buildCompatSessionMap(inviterId, inviterUsername, friendId, friendUsername);
-        db.runBatch(batch -> {
-                    batch.set(partyRef, party);
-                    batch.set(db.collection(SESSIONS).document(partyRef.getId()), session);
+        db.runTransaction(transaction -> {
+                    DocumentSnapshot inviter = transaction.get(inviterRef);
+                    DocumentSnapshot friend = transaction.get(friendRef);
+                    if (!inviter.exists() || !friend.exists()) {
+                        throw abort("Korisnik nije pronadjen");
+                    }
+                    if (hasActiveParty(inviter) || hasActiveParty(friend)) {
+                        throw abort("Jedan od igraca je vec u partiji");
+                    }
+                    transaction.set(partyRef, party);
+                    transaction.set(sessionRef, session);
+                    transaction.update(inviterRef,
+                            "activePartyId", partyRef.getId(),
+                            "updatedAt", FieldValue.serverTimestamp());
+                    transaction.update(friendRef,
+                            "activePartyId", partyRef.getId(),
+                            "updatedAt", FieldValue.serverTimestamp());
+                    return partyRef.getId();
                 })
-                .addOnSuccessListener(unused -> callback.onSuccess(partyRef.getId()))
+                .addOnSuccessListener(callback::onSuccess)
                 .addOnFailureListener(e -> callback.onError(messageOf(e, "Greska pri kreiranju prijateljske partije")));
     }
 
@@ -177,7 +197,8 @@ public class PartyRepository {
                     DocumentSnapshot guestUser = null;
                     DocumentReference ownerRef = db.collection(USERS).document(party.ownerId);
                     DocumentReference guestRef = db.collection(USERS).document(party.guestId);
-                    if (shouldApplyRewards(party, finalGame)) {
+                    boolean applyRewards = shouldApplyRewards(party, finalGame);
+                    if (applyRewards) {
                         ownerUser = transaction.get(ownerRef);
                         guestUser = transaction.get(guestRef);
                     }
@@ -190,9 +211,11 @@ public class PartyRepository {
                             newOwnerTotal, newGuestTotal, finalGame);
                     transaction.update(partyRef, updates);
 
-                    if (shouldApplyRewards(party, finalGame)) {
+                    if (applyRewards) {
                         applyRegularRewards(transaction, ownerRef, ownerUser, guestRef, guestUser, party,
-                                newOwnerTotal, newGuestTotal, party.forfeitedBy);
+                                newOwnerTotal, newGuestTotal, party.forfeitedBy, true);
+                    } else if (finalGame) {
+                        clearActiveParty(transaction, ownerRef, guestRef);
                     }
                     return null;
                 })
@@ -254,7 +277,8 @@ public class PartyRepository {
                         DocumentSnapshot guestUser = null;
                         DocumentReference ownerRef = db.collection(USERS).document(party.ownerId);
                         DocumentReference guestRef = db.collection(USERS).document(party.guestId);
-                        if (shouldApplyRewards(party, finalGame)) {
+                        boolean applyRewards = shouldApplyRewards(party, finalGame);
+                        if (applyRewards) {
                             ownerUser = transaction.get(ownerRef);
                             guestUser = transaction.get(guestRef);
                         }
@@ -266,9 +290,11 @@ public class PartyRepository {
                         updates.putAll(buildAdvanceUpdates(party, gameKey, effectiveOwnerScore, effectiveGuestScore,
                                 newOwnerTotal, newGuestTotal, finalGame));
 
-                        if (shouldApplyRewards(party, finalGame)) {
+                        if (applyRewards) {
                             applyRegularRewards(transaction, ownerRef, ownerUser, guestRef, guestUser, party,
-                                    newOwnerTotal, newGuestTotal, party.forfeitedBy);
+                                    newOwnerTotal, newGuestTotal, party.forfeitedBy, true);
+                        } else if (finalGame) {
+                            clearActiveParty(transaction, ownerRef, guestRef);
                         }
                     }
 
@@ -329,7 +355,8 @@ public class PartyRepository {
                         DocumentSnapshot guestUser = null;
                         DocumentReference ownerRef = db.collection(USERS).document(party.ownerId);
                         DocumentReference guestRef = db.collection(USERS).document(party.guestId);
-                        if (shouldApplyRewards(party, finalGame)) {
+                        boolean applyRewards = shouldApplyRewards(party, finalGame);
+                        if (applyRewards) {
                             ownerUser = transaction.get(ownerRef);
                             guestUser = transaction.get(guestRef);
                         }
@@ -341,9 +368,11 @@ public class PartyRepository {
                         updates.putAll(buildAdvanceUpdates(party, party.currentGameKey, effectiveOwnerScore, effectiveGuestScore,
                                 newOwnerTotal, newGuestTotal, finalGame));
 
-                        if (shouldApplyRewards(party, finalGame)) {
+                        if (applyRewards) {
                             applyRegularRewards(transaction, ownerRef, ownerUser, guestRef, guestUser, party,
-                                    newOwnerTotal, newGuestTotal, forfeitedBy);
+                                    newOwnerTotal, newGuestTotal, forfeitedBy, true);
+                        } else if (finalGame) {
+                            clearActiveParty(transaction, ownerRef, guestRef);
                         }
                     }
 
@@ -401,15 +430,23 @@ public class PartyRepository {
                     updates.put("winner", determinePartyWinnerId(party, newOwnerTotal, newGuestTotal, party.forfeitedBy));
                     updates.put("rewardApplied", party.isRegular() && party.countsForStats);
                     updates.put("updatedAt", FieldValue.serverTimestamp());
+                    DocumentReference ownerRef = db.collection(USERS).document(party.ownerId);
+                    DocumentReference guestRef = db.collection(USERS).document(party.guestId);
+                    DocumentSnapshot ownerUser = null;
+                    DocumentSnapshot guestUser = null;
+                    boolean applyRewards = party.isRegular() && party.countsForStats && !party.rewardApplied;
+                    if (applyRewards) {
+                        ownerUser = transaction.get(ownerRef);
+                        guestUser = transaction.get(guestRef);
+                    }
+
                     transaction.update(partyRef, updates);
 
-                    if (party.isRegular() && party.countsForStats && !party.rewardApplied) {
-                        DocumentReference ownerRef = db.collection(USERS).document(party.ownerId);
-                        DocumentReference guestRef = db.collection(USERS).document(party.guestId);
-                        DocumentSnapshot ownerUser = transaction.get(ownerRef);
-                        DocumentSnapshot guestUser = transaction.get(guestRef);
+                    if (applyRewards) {
                         applyRegularRewards(transaction, ownerRef, ownerUser, guestRef, guestUser, party,
-                                newOwnerTotal, newGuestTotal, party.forfeitedBy);
+                                newOwnerTotal, newGuestTotal, party.forfeitedBy, true);
+                    } else {
+                        clearActiveParty(transaction, ownerRef, guestRef);
                     }
 
                     return null;
@@ -425,6 +462,10 @@ public class PartyRepository {
     private void addCurrentUserToQueue(String uid, String username, MatchmakingCallback callback) {
         db.collection(USERS).document(uid).get()
                 .addOnSuccessListener(userSnap -> {
+                    if (hasActiveParty(userSnap)) {
+                        callback.onError("Vec ucestvujete u partiji.");
+                        return;
+                    }
                     if (intValue(userSnap.get("tokens")) < REGULAR_TOKEN_COST) {
                         callback.onError("Nemate dovoljno tokena za regularnu partiju.");
                         return;
@@ -461,6 +502,9 @@ public class PartyRepository {
 
                     DocumentSnapshot ownerUser = transaction.get(ownerUserRef);
                     DocumentSnapshot guestUser = transaction.get(guestUserRef);
+                    if (hasActiveParty(ownerUser) || hasActiveParty(guestUser)) {
+                        throw abort("Jedan od igraca je vec u partiji");
+                    }
                     if (intValue(ownerUser.get("tokens")) < REGULAR_TOKEN_COST
                             || intValue(guestUser.get("tokens")) < REGULAR_TOKEN_COST) {
                         throw abort("Oba igraca moraju imati bar 1 token");
@@ -477,8 +521,16 @@ public class PartyRepository {
                     );
                     Map<String, Object> session = buildCompatSessionMap(ownerId, ownerUsername, guestId, guestUsername);
 
-                    transaction.update(ownerUserRef, "tokens", FieldValue.increment(-REGULAR_TOKEN_COST));
-                    transaction.update(guestUserRef, "tokens", FieldValue.increment(-REGULAR_TOKEN_COST));
+                    Map<String, Object> ownerUpdates = new HashMap<>();
+                    ownerUpdates.put("tokens", FieldValue.increment(-REGULAR_TOKEN_COST));
+                    ownerUpdates.put("activePartyId", partyRef.getId());
+                    ownerUpdates.put("updatedAt", FieldValue.serverTimestamp());
+                    Map<String, Object> guestUpdates = new HashMap<>();
+                    guestUpdates.put("tokens", FieldValue.increment(-REGULAR_TOKEN_COST));
+                    guestUpdates.put("activePartyId", partyRef.getId());
+                    guestUpdates.put("updatedAt", FieldValue.serverTimestamp());
+                    transaction.update(ownerUserRef, ownerUpdates);
+                    transaction.update(guestUserRef, guestUpdates);
                     transaction.set(partyRef, party);
                     transaction.set(sessionRef, session);
                     transaction.delete(ownerQueueRef);
@@ -594,7 +646,8 @@ public class PartyRepository {
                                      PartyData party,
                                      int ownerTotal,
                                      int guestTotal,
-                                     String forfeitedBy) {
+                                     String forfeitedBy,
+                                     boolean clearActiveParty) {
         boolean draw = forfeitedBy == null && ownerTotal == guestTotal;
         boolean ownerForfeited = forfeitedBy != null && forfeitedBy.equals(party.ownerId);
         boolean guestForfeited = forfeitedBy != null && forfeitedBy.equals(party.guestId);
@@ -629,8 +682,14 @@ public class PartyRepository {
             guestWon = true;
         }
 
-        transaction.update(ownerRef, buildUserRewardUpdate(ownerUser, ownerStarsDelta, ownerWon));
-        transaction.update(guestRef, buildUserRewardUpdate(guestUser, guestStarsDelta, guestWon));
+        Map<String, Object> ownerUpdates = buildUserRewardUpdate(ownerUser, ownerStarsDelta, ownerWon);
+        Map<String, Object> guestUpdates = buildUserRewardUpdate(guestUser, guestStarsDelta, guestWon);
+        if (clearActiveParty) {
+            ownerUpdates.put("activePartyId", null);
+            guestUpdates.put("activePartyId", null);
+        }
+        transaction.update(ownerRef, ownerUpdates);
+        transaction.update(guestRef, guestUpdates);
     }
 
     private Map<String, Object> buildUserRewardUpdate(DocumentSnapshot user, int starsDelta, Boolean won) {
@@ -655,6 +714,13 @@ public class PartyRepository {
                 updates.put("tokens", FieldValue.increment(tokenBonus));
             }
         }
+
+        String currentMonth = currentMonthKey();
+        int currentMonthlyStars = currentMonth.equals(user.getString("monthlyRankMonth"))
+                ? intValue(user.get("monthlyStars"))
+                : 0;
+        updates.put("monthlyRankMonth", currentMonth);
+        updates.put("monthlyStars", Math.max(0, currentMonthlyStars + starsDelta));
         return updates;
     }
 
@@ -690,8 +756,29 @@ public class PartyRepository {
         return new FirebaseFirestoreException(message, FirebaseFirestoreException.Code.ABORTED);
     }
 
+    private void clearActiveParty(Transaction transaction, DocumentReference ownerRef, DocumentReference guestRef) {
+        transaction.update(ownerRef,
+                "activePartyId", null,
+                "updatedAt", FieldValue.serverTimestamp());
+        transaction.update(guestRef,
+                "activePartyId", null,
+                "updatedAt", FieldValue.serverTimestamp());
+    }
+
+    private boolean hasActiveParty(DocumentSnapshot user) {
+        String activePartyId = user.getString("activePartyId");
+        return activePartyId != null && !activePartyId.trim().isEmpty();
+    }
+
     private int intValue(Object value) {
         return value instanceof Number ? ((Number) value).intValue() : 0;
+    }
+
+    private String currentMonthKey() {
+        Calendar calendar = Calendar.getInstance();
+        return String.format(Locale.US, "%04d-%02d",
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH) + 1);
     }
 
     private String valueOrDefault(String value, String fallback) {
