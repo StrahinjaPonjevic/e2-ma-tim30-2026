@@ -1,5 +1,6 @@
 package com.example.slagalica.party;
 
+import com.example.slagalica.leagues.LeagueUiHelper;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -432,13 +433,7 @@ public class FriendsRepository {
         }
 
         public String leagueName() {
-            if (stars >= 200) {
-                return "Zlatna liga";
-            }
-            if (stars >= 100) {
-                return "Srebrna liga";
-            }
-            return "Bronzana liga";
+            return LeagueUiHelper.displayNameForStars(stars);
         }
     }
 

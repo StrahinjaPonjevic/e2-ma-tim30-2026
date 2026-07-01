@@ -1,5 +1,6 @@
 package com.example.slagalica.party;
 
+import com.example.slagalica.leagues.LeagueProgressionHelper;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -693,14 +694,13 @@ public class PartyRepository {
     }
 
     private Map<String, Object> buildUserRewardUpdate(DocumentSnapshot user, int starsDelta, Boolean won) {
-        Map<String, Object> updates = new HashMap<>();
         int currentStars = intValue(user.get("stars"));
         int currentProgress = intValue(user.get("starTokenProgress"));
         int newStars = Math.max(0, currentStars + starsDelta);
+        Map<String, Object> updates = LeagueProgressionHelper.buildStarsAndLeagueUpdate(
+                currentStars, newStars);
 
-        updates.put("stars", newStars);
         updates.put("matchesPlayed", FieldValue.increment(1));
-        updates.put("updatedAt", FieldValue.serverTimestamp());
 
         if (won != null) {
             updates.put(won ? "wins" : "losses", FieldValue.increment(1));

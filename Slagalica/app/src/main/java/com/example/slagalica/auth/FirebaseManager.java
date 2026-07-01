@@ -117,6 +117,11 @@ public class FirebaseManager {
         userData.put("avatarFrameCycleMonth", "");
         userData.put("tokens", 5);
         userData.put("stars", 0);
+        userData.put("leagueLevel", 0);
+        userData.put("lastLeagueChangeFrom", 0);
+        userData.put("lastLeagueChangeTo", 0);
+        userData.put("lastLeagueChangeDirection", "");
+        userData.put("lastLeagueNotificationId", "");
         userData.put("starTokenProgress", 0);
         userData.put("lastDailyTokenGrant", FieldValue.serverTimestamp());
         userData.put("monthlyRankMonth", currentMonthKey());

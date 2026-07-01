@@ -11,6 +11,7 @@ public class UserProfile {
     public final String avatarFrameCycleMonth;
     public final int tokens;
     public final int stars;
+    public final int leagueLevel;
     public final int matchesPlayed;
     public final int wins;
     public final int losses;
@@ -21,7 +22,7 @@ public class UserProfile {
 
     public UserProfile(String uid, String username, String email, String region, int avatarTheme,
                        int avatarFrameRank, String avatarFrameCycleMonth,
-                       int tokens, int stars, int matchesPlayed, int wins, int losses,
+                       int tokens, int stars, int leagueLevel, int matchesPlayed, int wins, int losses,
                        GameStats koZnaZna, GameStats spojnice, GameStats mojBroj, GameStats korakPoKorak) {
         this.uid = uid;
         this.username = username;
@@ -32,6 +33,7 @@ public class UserProfile {
         this.avatarFrameCycleMonth = avatarFrameCycleMonth;
         this.tokens = tokens;
         this.stars = stars;
+        this.leagueLevel = leagueLevel;
         this.matchesPlayed = matchesPlayed;
         this.wins = wins;
         this.losses = losses;

@@ -16,6 +16,8 @@ import com.example.slagalica.MojBrojActivity;
 import com.example.slagalica.R;
 import com.example.slagalica.SkockoActivity;
 import com.example.slagalica.SpojniceActivity;
+import com.example.slagalica.leagues.LeagueNotificationRepository;
+import com.example.slagalica.leagues.LeagueUiHelper;
 import com.example.slagalica.profile.UserProfile;
 import com.example.slagalica.profile.UserProfileRepository;
 import com.google.firebase.auth.FirebaseAuth;
@@ -134,7 +136,7 @@ public class PartyActivity extends AppCompatActivity {
             public void onSuccess(UserProfile profile) {
                 runOnUiThread(() -> tvProfileLine.setText("Tokeni: " + profile.tokens
                         + " | Zvezde: " + profile.stars
-                        + " | Liga: " + resolveLeague(profile.stars)));
+                        + " | Liga: " + LeagueUiHelper.displayNameForStars(profile.stars)));
             }
 
             @Override
@@ -371,21 +373,18 @@ public class PartyActivity extends AppCompatActivity {
         });
     }
 
-    private String resolveLeague(int stars) {
-        if (stars >= 200) {
-            return "Zlatna";
-        }
-        if (stars >= 100) {
-            return "Srebrna";
-        }
-        return "Bronzana";
-    }
-
     @Override
     protected void onResume() {
         super.onResume();
+        LeagueNotificationRepository.setCurrentActivity(this);
         launchedGameDocId = null;
         loadProfileLine();
+    }
+
+    @Override
+    protected void onPause() {
+        LeagueNotificationRepository.clearCurrentActivity(this);
+        super.onPause();
     }
 
     @Override

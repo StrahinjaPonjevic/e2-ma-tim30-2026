@@ -11,6 +11,8 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.auth.FirebaseManager;
+import com.example.slagalica.leagues.LeagueNotificationRepository;
+import com.example.slagalica.leagues.LeagueUiHelper;
 import com.example.slagalica.profile.UserProfile;
 import com.example.slagalica.profile.UserProfileRepository;
 import com.example.slagalica.regions.RegionAvatarFrameHelper;
@@ -153,7 +155,7 @@ public class ProfileActivity extends AppCompatActivity {
         tvRegion.setText("Region: " + profile.region);
         tvTokens.setText(String.valueOf(profile.tokens));
         tvStars.setText(String.valueOf(profile.stars));
-        tvLeague.setText(resolveLeague(profile.stars));
+        tvLeague.setText(LeagueUiHelper.profileSummaryForStars(profile.stars));
         tvTotalMatches.setText("Ukupno partija: " + profile.matchesPlayed);
         tvWinLose.setText(String.format(Locale.getDefault(), "Pobede: %d | Porazi: %d", profile.wins, profile.losses));
 
@@ -234,14 +236,16 @@ public class ProfileActivity extends AppCompatActivity {
         return percent + "%";
     }
 
-    private String resolveLeague(int stars) {
-        if (stars >= 200) {
-            return "Zlatna liga";
-        }
-        if (stars >= 100) {
-            return "Srebrna liga";
-        }
-        return "Bronzana liga";
+    @Override
+    protected void onResume() {
+        super.onResume();
+        LeagueNotificationRepository.setCurrentActivity(this);
+    }
+
+    @Override
+    protected void onPause() {
+        LeagueNotificationRepository.clearCurrentActivity(this);
+        super.onPause();
     }
 
     private String extractInitials(String username) {

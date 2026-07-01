@@ -4,6 +4,8 @@ import com.example.slagalica.auth.FirebaseManager;
 import com.example.slagalica.challenge.ChallengeActivity;
 import com.example.slagalica.chat.ChatActivity;
 import com.example.slagalica.chat.ChatRepository;
+import com.example.slagalica.leagues.LeagueNotificationRepository;
+import com.example.slagalica.leagues.LeagueUiHelper;
 import com.example.slagalica.notifications.NotificationChannelManager;
 import com.example.slagalica.party.FriendlyInviteActivity;
 import com.example.slagalica.party.FriendlyInviteRepository;
@@ -109,6 +111,7 @@ public class MainActivity extends AppCompatActivity {
         loggedInSection.setVisibility(View.GONE);
         ChatRepository.stopNotificationListener();
         FriendlyInviteRepository.stopNotificationListener();
+        LeagueNotificationRepository.stopLeagueChangeListener();
 
         btnOpenLogin.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, LoginActivity.class)));
         btnOpenRegister.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, RegisterActivity.class)));
@@ -121,6 +124,7 @@ public class MainActivity extends AppCompatActivity {
         tvLoggedInUser.setText("Dobrodosli!");
         tvTokensStars.setText("Ucitavanje profila...");
         firebaseManager.markCurrentUserLoggedIn();
+        LeagueNotificationRepository.startLeagueChangeListener(MainActivity.this, user.getUid());
 
         profileRepository.grantDailyTokensIfNeeded(user.getUid(), new UserProfileRepository.OperationCallback() {
             @Override
@@ -152,7 +156,7 @@ public class MainActivity extends AppCompatActivity {
                     tvLoggedInUser.setText("Dobrodosli, " + profile.username + "!");
                     tvTokensStars.setText("Tokeni: " + profile.tokens
                             + " | Zvezde: " + profile.stars
-                            + " | Liga: " + resolveLeague(profile.stars));
+                            + " | Liga: " + LeagueUiHelper.displayNameForStars(profile.stars));
                     applyProfileAvatar(profile);
                 });
             }
@@ -170,6 +174,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        LeagueNotificationRepository.setCurrentActivity(this);
         FirebaseUser currentUser = firebaseManager.getCurrentUser();
         if (currentUser != null && !currentUser.isAnonymous()) {
             showLoggedInView(currentUser);
@@ -178,14 +183,10 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private String resolveLeague(int stars) {
-        if (stars >= 200) {
-            return "Zlatna";
-        }
-        if (stars >= 100) {
-            return "Srebrna";
-        }
-        return "Bronzana";
+    @Override
+    protected void onPause() {
+        LeagueNotificationRepository.clearCurrentActivity(this);
+        super.onPause();
     }
 
     private void applyProfileAvatar(UserProfile profile) {
