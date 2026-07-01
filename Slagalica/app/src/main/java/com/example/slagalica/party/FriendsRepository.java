@@ -382,6 +382,8 @@ public class FriendsRepository {
         public final String username;
         public final String region;
         public final int avatarTheme;
+        public final int avatarFrameRank;
+        public final String avatarFrameCycleMonth;
         public final int stars;
         public final int monthlyStars;
         public final int monthlyRank;
@@ -389,12 +391,15 @@ public class FriendsRepository {
         public final String activePartyId;
 
         public FriendSummary(String uid, String username, String region, int avatarTheme,
+                             int avatarFrameRank, String avatarFrameCycleMonth,
                              int stars, int monthlyStars, int monthlyRank,
                              boolean isLoggedIn, String activePartyId) {
             this.uid = uid;
             this.username = username;
             this.region = region;
             this.avatarTheme = avatarTheme;
+            this.avatarFrameRank = avatarFrameRank;
+            this.avatarFrameCycleMonth = avatarFrameCycleMonth;
             this.stars = stars;
             this.monthlyStars = monthlyStars;
             this.monthlyRank = monthlyRank;
@@ -412,6 +417,8 @@ public class FriendsRepository {
                     valueOrDefault(snapshot.getString("username"), "Igrac"),
                     valueOrDefault(snapshot.getString("region"), ""),
                     intValue(snapshot.get("avatarTheme")),
+                    intValue(snapshot.get("avatarFrameRank")),
+                    valueOrDefault(snapshot.getString("avatarFrameCycleMonth"), ""),
                     intValue(snapshot.get("stars")),
                     monthlyStars,
                     monthlyRank,

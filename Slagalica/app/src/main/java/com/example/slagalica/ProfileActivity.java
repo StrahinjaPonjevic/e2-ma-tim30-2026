@@ -2,7 +2,6 @@ package com.example.slagalica;
 
 import android.content.Intent;
 import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.TextView;
@@ -14,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.slagalica.auth.FirebaseManager;
 import com.example.slagalica.profile.UserProfile;
 import com.example.slagalica.profile.UserProfileRepository;
+import com.example.slagalica.regions.RegionAvatarFrameHelper;
 import com.google.firebase.auth.FirebaseUser;
 
 import java.util.Locale;
@@ -158,7 +158,7 @@ public class ProfileActivity extends AppCompatActivity {
         tvWinLose.setText(String.format(Locale.getDefault(), "Pobede: %d | Porazi: %d", profile.wins, profile.losses));
 
         tvAvatarInitials.setText(extractInitials(profile.username));
-        applyAvatarTheme(profile.avatarTheme);
+        applyAvatarTheme(profile.avatarTheme, profile.avatarFrameRank, profile.avatarFrameCycleMonth);
 
         tvKoZnaZnaAverage.setText(buildAverageText("Ko zna zna", profile.koZnaZna.gamesPlayed, profile.koZnaZna.totalScore, 50));
         tvSpojniceAverage.setText(buildAverageText("Spojnice", profile.spojnice.gamesPlayed, profile.spojnice.totalScore, 20));
@@ -211,13 +211,10 @@ public class ProfileActivity extends AppCompatActivity {
                 .show();
     }
 
-    private void applyAvatarTheme(int avatarTheme) {
+    private void applyAvatarTheme(int avatarTheme, int avatarFrameRank, String avatarFrameCycleMonth) {
         int safeIndex = Math.max(0, Math.min(avatarTheme, AVATAR_COLORS.length - 1));
-        if (tvAvatarInitials.getBackground() instanceof GradientDrawable) {
-            GradientDrawable drawable = (GradientDrawable) tvAvatarInitials.getBackground().mutate();
-            drawable.setColor(AVATAR_COLORS[safeIndex]);
-            drawable.setStroke(3, Color.rgb(255, 248, 239));
-        }
+        RegionAvatarFrameHelper.apply(tvAvatarInitials, AVATAR_COLORS[safeIndex],
+                avatarFrameRank, avatarFrameCycleMonth);
     }
 
     private String buildAverageText(String label, int gamesPlayed, int totalScore, int maxScore) {

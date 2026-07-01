@@ -145,6 +145,15 @@
                 android:textAllCaps="false"
                 android:textSize="16sp" />
 
+            <Button
+                android:id="@+id/btnOpenRegions"
+                android:layout_width="match_parent"
+                android:layout_height="55dp"
+                android:layout_marginBottom="16dp"
+                android:text="Regioni Srbije"
+                android:textAllCaps="false"
+                android:textSize="16sp" />
+
         </LinearLayout>
 
     </LinearLayout>

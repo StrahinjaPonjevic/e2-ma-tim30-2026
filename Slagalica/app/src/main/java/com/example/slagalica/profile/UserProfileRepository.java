@@ -62,6 +62,8 @@ public class UserProfileRepository {
     public void ensureProfileDefaults(String uid, OperationCallback callback) {
         Map<String, Object> defaults = new HashMap<>();
         defaults.put("avatarTheme", 0);
+        defaults.put("avatarFrameRank", 0);
+        defaults.put("avatarFrameCycleMonth", "");
         defaults.put("tokens", 5);
         defaults.put("stars", 0);
         defaults.put("starTokenProgress", 0);
@@ -163,6 +165,8 @@ public class UserProfileRepository {
                 valueOrDefault(snapshot.getString("email"), ""),
                 valueOrDefault(snapshot.getString("region"), "Nepoznat region"),
                 intValue(snapshot.get("avatarTheme")),
+                intValue(snapshot.get("avatarFrameRank")),
+                valueOrDefault(snapshot.getString("avatarFrameCycleMonth"), ""),
                 snapshot.contains("tokens") ? intValue(snapshot.get("tokens")) : 5,
                 intValue(snapshot.get("stars")),
                 intValue(snapshot.get("matchesPlayed")),
