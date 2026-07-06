@@ -217,10 +217,6 @@ public class PartyActivity extends AppCompatActivity {
             btnPrimary.setEnabled(true);
             btnPrimary.setText("Nastavi igru");
 
-            if (isSoloSubmittedAndWaiting(party)) {
-                tvStatus.setText("Rezultat je poslat. Cekanje protivnika za sledecu igru.");
-                return;
-            }
 
             tvStatus.setText(party.hasForfeit()
                     ? "Protivnik je odustao. Nastavljate partiju bez cekanja."
@@ -280,11 +276,6 @@ public class PartyActivity extends AppCompatActivity {
         }
     }
 
-    private boolean isSoloSubmittedAndWaiting(PartyData party) {
-        return isSoloIntegratedGame(party.currentGameKey)
-                && party.hasCurrentUserSubmittedSoloScore(currentUser.getUid());
-    }
-
     private void openCurrentGame(PartyData party) {
         if (party == null || !PartyData.STATUS_IN_PROGRESS.equals(party.status)) {
             return;
@@ -341,10 +332,6 @@ public class PartyActivity extends AppCompatActivity {
             default:
                 return null;
         }
-    }
-
-    private boolean isSoloIntegratedGame(String gameKey) {
-        return "asocijacije".equals(gameKey) || "skocko".equals(gameKey);
     }
 
     private String resolveWinnerText(PartyData party) {

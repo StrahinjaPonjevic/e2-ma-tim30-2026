@@ -109,12 +109,15 @@ public class ChatRepository {
                         return;
                     }
 
-                    NotificationHelper.send(
+                    NotificationHelper.sendAndStore(
                             appContext,
+                            currentUserId,
                             NotificationChannelManager.CHANNEL_CHAT,
                             "Nova cet poruka",
                             latest.senderName + ": " + latest.text,
-                            Math.abs(latest.messageId != null ? latest.messageId.hashCode() : 17)
+                            Math.abs(latest.messageId != null ? latest.messageId.hashCode() : 17),
+                            "chat",
+                            region
                     );
                 });
     }

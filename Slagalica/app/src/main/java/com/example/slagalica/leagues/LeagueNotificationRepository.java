@@ -8,6 +8,7 @@ import androidx.appcompat.app.AlertDialog;
 
 import com.example.slagalica.notifications.NotificationChannelManager;
 import com.example.slagalica.notifications.NotificationHelper;
+import com.example.slagalica.notifications.NotificationStore;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
@@ -66,7 +67,7 @@ public final class LeagueNotificationRepository {
                         return;
                     }
                     rememberNotification(preferences, uid, notificationId);
-                    notifyLeagueChange(appContext, snapshot, notificationId);
+                    notifyLeagueChange(appContext, uid, snapshot, notificationId);
                 });
     }
 
@@ -90,7 +91,7 @@ public final class LeagueNotificationRepository {
         }
     }
 
-    private static void notifyLeagueChange(Context appContext, DocumentSnapshot snapshot,
+    private static void notifyLeagueChange(Context appContext, String uid, DocumentSnapshot snapshot,
                                            String notificationId) {
         int fromLevel = intValue(snapshot.get("lastLeagueChangeFrom"));
         int toLevel = intValue(snapshot.get("lastLeagueChangeTo"));
@@ -98,6 +99,9 @@ public final class LeagueNotificationRepository {
         boolean movedUp = "up".equals(direction) || (direction == null && toLevel > fromLevel);
         String title = movedUp ? "Nova liga!" : "Pad u nižu ligu";
         String message = LeagueUiHelper.changeMessage(fromLevel, toLevel, direction);
+
+        NotificationStore.save(uid, NotificationChannelManager.CHANNEL_RANKING,
+                title, message, "league", null);
 
         Activity activity = currentActivity.get();
         if (activity != null && !activity.isFinishing() && !activity.isDestroyed()) {
@@ -115,7 +119,7 @@ public final class LeagueNotificationRepository {
 
         NotificationHelper.send(
                 appContext,
-                NotificationChannelManager.CHANNEL_REWARDS,
+                NotificationChannelManager.CHANNEL_RANKING,
                 title,
                 message,
                 notificationId.hashCode() & 0x7fffffff

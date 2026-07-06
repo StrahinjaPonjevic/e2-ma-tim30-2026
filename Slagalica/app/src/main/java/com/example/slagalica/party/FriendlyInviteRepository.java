@@ -338,12 +338,15 @@ public class FriendlyInviteRepository {
                     for (DocumentSnapshot doc : snapshot.getDocuments()) {
                         FriendlyInviteData invite = FriendlyInviteData.fromSnapshot(doc);
                         if (!invite.isExpired()) {
-                            NotificationHelper.send(
+                            NotificationHelper.sendAndStore(
                                     appContext,
+                                    uid,
                                     NotificationChannelManager.CHANNEL_OTHER,
                                     "Prijateljska partija",
                                     invite.inviterUsername + " vas poziva na partiju.",
-                                    Math.abs(doc.getId().hashCode())
+                                    Math.abs(doc.getId().hashCode()),
+                                    "friendly_invite",
+                                    doc.getId()
                             );
                             return;
                         }

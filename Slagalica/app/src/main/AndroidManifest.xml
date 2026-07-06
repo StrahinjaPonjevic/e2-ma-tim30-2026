@@ -45,6 +45,9 @@
             android:name=".SkockoActivity"
             android:exported="false" />
         <activity
+            android:name=".notifications.NotificationsActivity"
+            android:exported="false" />
+        <activity
             android:name=".GameSelectionActivity"
             android:exported="false" />
         <activity

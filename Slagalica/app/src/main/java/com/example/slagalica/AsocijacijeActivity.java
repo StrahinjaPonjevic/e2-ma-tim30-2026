@@ -4,7 +4,6 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.CountDownTimer;
-import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -12,220 +11,185 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.example.slagalica.asocijacije.AsocijacijeSessionRepository;
+import com.example.slagalica.asocijacije.AsocijacijeSet;
+import com.example.slagalica.asocijacije.FirestoreAsocijacijeRepository;
 import com.example.slagalica.challenge.ChallengeRepository;
+import com.example.slagalica.party.PartyData;
 import com.example.slagalica.party.PartyRepository;
+import com.example.slagalica.profile.ProfileStatsUpdater;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.ListenerRegistration;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class AsocijacijeActivity extends AppCompatActivity {
 
-    private static final int COLOR_A      = Color.parseColor("#5C4DB1");
-    private static final int COLOR_B      = Color.parseColor("#7B5EA7");
-    private static final int COLOR_C      = Color.parseColor("#9C6FBE");
-    private static final int COLOR_D      = Color.parseColor("#B48FD4");
+    private static final int ROUND_DURATION_SECONDS = 120;
+    private static final char[] COLUMNS = {'A', 'B', 'C', 'D'};
+
+    private static final int COLOR_A = Color.parseColor("#5C4DB1");
+    private static final int COLOR_B = Color.parseColor("#7B5EA7");
+    private static final int COLOR_C = Color.parseColor("#9C6FBE");
+    private static final int COLOR_D = Color.parseColor("#B48FD4");
     private static final int COLOR_SOLVED = Color.parseColor("#2E7D32");
-    private static final int COLOR_FINAL  = Color.parseColor("#6200EE");
+    private static final int COLOR_REVEALED = Color.parseColor("#78909C");
 
-    private static final long ROUND_DURATION_MS = 120_000;
-
-    private final String[] itemsA = {"Sapun", "Azot", "Kristal", "Govor"};
-    private final String[] itemsB = {"Ogledalo", "Escajg", "Medalja", "Nakit"};
-    private final String[] itemsC = {"Toplomer", "Ograda", "Svirka", "Istina"};
-    private final String[] itemsD = {"Zub", "Groznica", "Ribica", "Ćutanje"};
-    private final String solutionA = "TECNI";
-    private final String solutionB = "SREBRO";
-    private final String solutionC = "ZIVA";
-    private final String solutionD = "ZLATO";
-    private final String solutionFinal = "METAL";
-
-    private boolean[] revealedA = new boolean[4];
-    private boolean[] revealedB = new boolean[4];
-    private boolean[] revealedC = new boolean[4];
-    private boolean[] revealedD = new boolean[4];
-    private boolean solvedA, solvedB, solvedC, solvedD, solvedFinal;
-
-    private boolean canReveal = true;
-
-    private int player1Score = 0;
-    private int player2Score = 0;
-
-    private Button[] cellsA, cellsB, cellsC, cellsD;
-    private TextView tvAnswerA, tvAnswerB, tvAnswerC, tvAnswerD, tvAnswerFinal;
     private TextView tvPlayer1Name, tvPlayer1Score, tvPlayer2Name, tvPlayer2Score;
     private TextView tvRoundLabel, tvTimer;
     private CircularProgressIndicator progressTimer;
+    private Button[] cellsA, cellsB, cellsC, cellsD;
+    private TextView tvAnswerA, tvAnswerB, tvAnswerC, tvAnswerD, tvAnswerFinal;
     private EditText etGuess;
-    private Button btnClear, btnConfirm, btnBack;
+    private Button btnClear, btnConfirm, btnPass, btnBack;
 
-    private CountDownTimer countDownTimer;
-    private int timeLeftSeconds;
     private PartyRepository partyRepository;
     private ChallengeRepository challengeRepository;
+    private FirestoreAsocijacijeRepository setRepository;
+    private AsocijacijeSessionRepository sessionRepository;
+    private ProfileStatsUpdater profileStatsUpdater;
+
+    private String sessionId;
     private String partyId;
     private String challengeId;
+    private String gameDocId;
     private String gameKey;
     private String currentUserId;
     private boolean challengeMode = false;
-    private boolean gameFinished = false;
+    private boolean countsForStats = true;
+    private boolean syncedMode = false;
+    private boolean isOwner = true;
+    private boolean canControlGameFlow = true;
+    private boolean opponentForfeited = false;
+    private boolean returningToParty = false;
+    private boolean phaseAdvanceRequested = false;
+    private boolean turnFlipRequested = false;
+    private boolean initializeRequested = false;
+    private boolean waitingForGameRetryScheduled = false;
+    private boolean resultAdvanceScheduled = false;
     private boolean challengeScoreSubmitted = false;
+    private boolean partyFinishSubmitted = false;
+    private boolean statsRecorded = false;
+
+    private AsocijacijeSessionRepository.SessionInfo sessionInfo;
+    private AsocijacijeSessionRepository.GameState currentState;
+    private String lastObservedPhase;
+    private ListenerRegistration gameListener;
+    private ListenerRegistration partyListener;
+    private CountDownTimer countDownTimer;
+
+    private List<AsocijacijeSet> soloSets;
+    private int soloRound = 1;
+    private Set<String> soloOpened = new HashSet<>();
+    private Map<String, String> soloSolved = new HashMap<>();
+    private boolean soloFinalSolved = false;
+    private int soloScore = 0;
+    private int soloFinals = 0;
+    private boolean soloRoundRunning = false;
+    private boolean soloFinished = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_asocijacije);
 
+        partyRepository = new PartyRepository();
+        challengeRepository = new ChallengeRepository();
+        setRepository = new FirestoreAsocijacijeRepository();
+        sessionRepository = new AsocijacijeSessionRepository();
+        profileStatsUpdater = new ProfileStatsUpdater();
+
+        sessionId = getIntent().getStringExtra("sessionId");
         partyId = getIntent().getStringExtra("partyId");
         challengeId = getIntent().getStringExtra("challengeId");
-        challengeMode = getIntent().getBooleanExtra("challengeMode", false);
+        gameDocId = getIntent().getStringExtra("gameDocId");
         gameKey = getIntent().getStringExtra("gameKey");
+        challengeMode = getIntent().getBooleanExtra("challengeMode", false);
+        countsForStats = getIntent().getBooleanExtra("countsForStats", true);
+        isOwner = getIntent().getBooleanExtra("isOwner", true);
+        canControlGameFlow = isOwner;
+
         if (gameKey == null || gameKey.trim().isEmpty()) {
             gameKey = "asocijacije";
         }
-        partyRepository = new PartyRepository();
-        challengeRepository = new ChallengeRepository();
+        if (gameDocId == null || gameDocId.trim().isEmpty()) {
+            gameDocId = sessionId != null ? sessionId : "asocijacije_local";
+        }
+
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         currentUserId = currentUser != null ? currentUser.getUid() : null;
 
+        syncedMode = partyId != null && !partyId.trim().isEmpty() && !challengeMode;
+
         bindViews();
-        setupPlayerInfo();
-        setupCellListeners();
-        setupBottomButtons();
-        startTimer();
+        bindListeners();
+        setupInitialHeader();
+
+        if (syncedMode) {
+            loadSessionAndStart();
+        } else {
+            startSoloMode();
+        }
     }
 
     private void bindViews() {
-        tvPlayer1Name  = findViewById(R.id.tvPlayer1Name);
+        tvPlayer1Name = findViewById(R.id.tvPlayer1Name);
         tvPlayer1Score = findViewById(R.id.tvPlayer1Score);
-        tvPlayer2Name  = findViewById(R.id.tvPlayer2Name);
+        tvPlayer2Name = findViewById(R.id.tvPlayer2Name);
         tvPlayer2Score = findViewById(R.id.tvPlayer2Score);
-        tvRoundLabel   = findViewById(R.id.tvRoundLabel);
-        tvTimer        = findViewById(R.id.tvTimer);
-        progressTimer  = findViewById(R.id.progressTimer);
+        tvRoundLabel = findViewById(R.id.tvRoundLabel);
+        tvTimer = findViewById(R.id.tvTimer);
+        progressTimer = findViewById(R.id.progressTimer);
 
-        cellsA = new Button[]{
-                findViewById(R.id.cellA1),
-                findViewById(R.id.cellA2),
-                findViewById(R.id.cellA3),
-                findViewById(R.id.cellA4)
-        };
+        cellsA = new Button[]{findViewById(R.id.cellA1), findViewById(R.id.cellA2),
+                findViewById(R.id.cellA3), findViewById(R.id.cellA4)};
+        cellsB = new Button[]{findViewById(R.id.cellB1), findViewById(R.id.cellB2),
+                findViewById(R.id.cellB3), findViewById(R.id.cellB4)};
+        cellsC = new Button[]{findViewById(R.id.cellC1), findViewById(R.id.cellC2),
+                findViewById(R.id.cellC3), findViewById(R.id.cellC4)};
+        cellsD = new Button[]{findViewById(R.id.cellD1), findViewById(R.id.cellD2),
+                findViewById(R.id.cellD3), findViewById(R.id.cellD4)};
 
-        cellsB = new Button[]{
-                findViewById(R.id.cellB1),
-                findViewById(R.id.cellB2),
-                findViewById(R.id.cellB3),
-                findViewById(R.id.cellB4)
-        };
-
-        cellsC = new Button[]{
-                findViewById(R.id.cellC4),
-                findViewById(R.id.cellC3),
-                findViewById(R.id.cellC2),
-                findViewById(R.id.cellC1)
-        };
-
-        cellsD = new Button[]{
-                findViewById(R.id.cellD4),
-                findViewById(R.id.cellD3),
-                findViewById(R.id.cellD2),
-                findViewById(R.id.cellD1)
-        };
-
-        tvAnswerA     = findViewById(R.id.tvAnswerA);
-        tvAnswerB     = findViewById(R.id.tvAnswerB);
-        tvAnswerC     = findViewById(R.id.tvAnswerC);
-        tvAnswerD     = findViewById(R.id.tvAnswerD);
+        tvAnswerA = findViewById(R.id.tvAnswerA);
+        tvAnswerB = findViewById(R.id.tvAnswerB);
+        tvAnswerC = findViewById(R.id.tvAnswerC);
+        tvAnswerD = findViewById(R.id.tvAnswerD);
         tvAnswerFinal = findViewById(R.id.tvAnswerFinal);
 
-        etGuess    = findViewById(R.id.etGuess);
-        btnClear   = findViewById(R.id.btnClear);
+        etGuess = findViewById(R.id.etGuess);
+        btnClear = findViewById(R.id.btnClear);
         btnConfirm = findViewById(R.id.btnConfirm);
-        btnBack    = findViewById(R.id.btnBack);
+        btnPass = findViewById(R.id.btnPass);
+        btnBack = findViewById(R.id.btnBack);
     }
 
-
-    private void setupPlayerInfo() {
-        // TODO: ucitaj igrace
-        tvPlayer1Name.setText("Igrač 1");
-        tvPlayer2Name.setText("Igrač 2");
-        updateScoreViews();
-
-        progressTimer.setMax(100);
-        progressTimer.setProgress(100);
-    }
-
-    private void setupCellListeners() {
+    private void bindListeners() {
         for (int i = 0; i < 4; i++) {
-            final int row = i;
-            cellsA[i].setOnClickListener(v -> onCellClicked('A', row));
+            final int idx = i;
+            cellsA[i].setOnClickListener(v -> onCellClicked('A', idx));
+            cellsB[i].setOnClickListener(v -> onCellClicked('B', idx));
+            cellsC[i].setOnClickListener(v -> onCellClicked('C', idx));
+            cellsD[i].setOnClickListener(v -> onCellClicked('D', idx));
         }
 
-        for (int i = 0; i < 4; i++) {
-            final int row = i;
-            cellsB[i].setOnClickListener(v -> onCellClicked('B', row));
-        }
-
-        for (int i = 0; i < 4; i++) {
-            final int xmlIndex = i;
-            final int dataIndex = 3 - i;
-            cellsC[i].setOnClickListener(v -> onCellClickedCD('C', xmlIndex, dataIndex));
-        }
-
-        for (int i = 0; i < 4; i++) {
-            final int xmlIndex = i;
-            final int dataIndex = 3 - i;
-            cellsD[i].setOnClickListener(v -> onCellClickedCD('D', xmlIndex, dataIndex));
-        }
-    }
-
-    private void onCellClicked(char col, int row) {
-        if (!canReveal) return;
-
-        boolean[] revealed = (col == 'A') ? revealedA : revealedB;
-        Button[]  cells    = (col == 'A') ? cellsA    : cellsB;
-        String[]  items    = (col == 'A') ? itemsA    : itemsB;
-        boolean   solved   = (col == 'A') ? solvedA   : solvedB;
-        int       color    = (col == 'A') ? COLOR_A   : COLOR_B;
-
-        if (solved || revealed[row]) return;
-
-        revealed[row] = true;
-        canReveal = false;
-
-        cells[row].setText(items[row]);
-        cells[row].setBackgroundTintList(ColorStateList.valueOf(lighten(color)));
-
-        cells[row].postDelayed(() -> canReveal = true, 400);
-    }
-
-    private void onCellClickedCD(char col, int xmlIndex, int dataIndex) {
-        if (!canReveal) return;
-
-        boolean[] revealed = (col == 'C') ? revealedC : revealedD;
-        Button[]  cells    = (col == 'C') ? cellsC    : cellsD;
-        String[]  items    = (col == 'C') ? itemsC    : itemsD;
-        boolean   solved   = (col == 'C') ? solvedC   : solvedD;
-        int       color    = (col == 'C') ? COLOR_C   : COLOR_D;
-
-        if (solved || revealed[dataIndex]) return;
-
-        revealed[dataIndex] = true;
-        canReveal = false;
-
-        cells[xmlIndex].setText(items[dataIndex]);
-        cells[xmlIndex].setBackgroundTintList(ColorStateList.valueOf(lighten(color)));
-
-        cells[xmlIndex].postDelayed(() -> canReveal = true, 400);
-    }
-
-    private void setupBottomButtons() {
         btnClear.setOnClickListener(v -> etGuess.setText(""));
 
         btnConfirm.setOnClickListener(v -> {
-            String guess = etGuess.getText().toString().trim().toUpperCase();
+            String guess = etGuess.getText().toString().trim();
             if (guess.isEmpty()) return;
-            handleGuess(guess);
             etGuess.setText("");
+            if (syncedMode) {
+                handleGuessSynced(guess);
+            } else {
+                handleGuessSolo(guess);
+            }
         });
 
         etGuess.setOnEditorActionListener((v, actionId, event) -> {
@@ -233,13 +197,15 @@ public class AsocijacijeActivity extends AppCompatActivity {
             return true;
         });
 
-        if (partyId != null && !challengeMode) {
+        btnPass.setOnClickListener(v -> handlePass());
+
+        if (syncedMode) {
             btnBack.setText("Odustani");
         } else if (challengeMode) {
             btnBack.setText("Nazad u izazov");
         }
         btnBack.setOnClickListener(v -> {
-            if (partyId != null && !challengeMode && !gameFinished) {
+            if (syncedMode && !isGameOver()) {
                 forfeitParty();
             } else {
                 finish();
@@ -247,207 +213,276 @@ public class AsocijacijeActivity extends AppCompatActivity {
         });
     }
 
-    private void handleGuess(String inputGuess) {
-        String guess = inputGuess
-                .replace('Ž', 'Z')
-                .replace('Đ', 'D')
-                .replace('Č', 'C')
-                .replace('Š', 'S')
-                .replace('Ć', 'C');
+    private boolean isGameOver() {
+        if (syncedMode) {
+            return currentState != null && AsocijacijeSessionRepository.PHASE_FINISHED.equals(currentState.phase);
+        }
+        return soloFinished;
+    }
 
-        boolean hit = false;
+    private void setupInitialHeader() {
+        tvPlayer1Name.setText(syncedMode ? "Igrac 1" : "Ti");
+        tvPlayer2Name.setText(syncedMode ? "Igrac 2" : "");
+        tvPlayer1Score.setText("0 bodova");
+        tvPlayer2Score.setText(syncedMode ? "0 bodova" : "");
+        tvRoundLabel.setText("Priprema igre...");
+        tvTimer.setText(String.valueOf(ROUND_DURATION_SECONDS));
+        progressTimer.setMax(ROUND_DURATION_SECONDS);
+        progressTimer.setProgress(ROUND_DURATION_SECONDS);
+        setInputEnabled(false, false, false);
+        if (!syncedMode) {
+            btnPass.setEnabled(false);
+        }
+    }
 
-        if (!solvedA && guess.equalsIgnoreCase(solutionA)) {
-            solvedA = true;
-            revealColumnSolution('A');
-            addPoints(calcColumnPoints(revealedA));
-            hit = true;
-        } else if (!solvedB && guess.equalsIgnoreCase(solutionB)) {
-            solvedB = true;
-            revealColumnSolution('B');
-            addPoints(calcColumnPoints(revealedB));
-            hit = true;
-        } else if (!solvedC && guess.equalsIgnoreCase(solutionC)) {
-            solvedC = true;
-            revealColumnSolution('C');
-            addPoints(calcColumnPoints(revealedC));
-            hit = true;
-        } else if (!solvedD && guess.equalsIgnoreCase(solutionD)) {
-            solvedD = true;
-            revealColumnSolution('D');
-            addPoints(calcColumnPoints(revealedD));
-            hit = true;
-        } else if (!solvedFinal && guess.equalsIgnoreCase(solutionFinal)) {
-            solvedFinal = true;
-            revealFinalSolution();
-            addPoints(calcFinalPoints());
-            hit = true;
+    private void loadSessionAndStart() {
+        if (sessionId == null || sessionId.trim().isEmpty()) {
+            Toast.makeText(this, "Sesija nije pronadjena", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+        sessionRepository.loadSessionInfo(sessionId, new AsocijacijeSessionRepository.SessionInfoCallback() {
+            @Override
+            public void onSuccess(AsocijacijeSessionRepository.SessionInfo info) {
+                sessionInfo = info;
+                if (currentUserId != null && info.ownerId != null) {
+                    isOwner = currentUserId.equals(info.ownerId);
+                    canControlGameFlow = isOwner;
+                }
+                runOnUiThread(() -> {
+                    updatePlayerNames();
+                    observeParty();
+                    observeGame();
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> {
+                    Toast.makeText(AsocijacijeActivity.this, message, Toast.LENGTH_LONG).show();
+                    finish();
+                });
+            }
+        });
+    }
+
+    private void observeGame() {
+        gameListener = sessionRepository.observeGame(gameDocId, new AsocijacijeSessionRepository.GameStateListener() {
+            @Override
+            public void onGameStateChanged(AsocijacijeSessionRepository.GameState gameState) {
+                runOnUiThread(() -> handleGameState(gameState));
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> Toast.makeText(AsocijacijeActivity.this, message, Toast.LENGTH_SHORT).show());
+            }
+        });
+    }
+
+    private void observeParty() {
+        partyListener = partyRepository.listenParty(partyId, new PartyRepository.PartyListener() {
+            @Override
+            public void onPartyChanged(PartyData party) {
+                runOnUiThread(() -> handlePartyUpdate(party));
+            }
+
+            @Override
+            public void onError(String message) {
+            }
+        });
+    }
+
+    private void handlePartyUpdate(PartyData party) {
+        if (party == null || currentUserId == null) {
+            return;
         }
 
-        if (!hit) {
-            Toast.makeText(this, "Netačan odgovor!", Toast.LENGTH_SHORT).show();
-            etGuess.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#E53935")));
-            etGuess.postDelayed(() ->
-                    etGuess.setBackgroundTintList(null), 600);
+        boolean partyMovedOn = !PartyData.STATUS_IN_PROGRESS.equals(party.status)
+                || (party.currentGameKey != null && !party.currentGameKey.equals(gameKey));
+        if (partyMovedOn) {
+            if (!returningToParty) {
+                returningToParty = true;
+                stopTimer();
+                finish();
+            }
+            return;
+        }
+
+        boolean currentUserForfeited = party.hasCurrentUserForfeited(currentUserId);
+        opponentForfeited = party.hasForfeit() && !currentUserForfeited;
+
+        boolean shouldControlFlow = party.isOwner(currentUserId);
+        if (party.ownerForfeited && currentUserId.equals(party.guestId)) {
+            shouldControlFlow = true;
+        }
+        if (party.guestForfeited && currentUserId.equals(party.ownerId)) {
+            shouldControlFlow = true;
+        }
+        canControlGameFlow = shouldControlFlow;
+
+        if (currentState == null) {
+            if (opponentForfeited && canControlGameFlow && sessionInfo != null && !initializeRequested) {
+                initializeGame();
+            }
+            return;
+        }
+
+        flipTurnAfterForfeitIfNeeded(currentState);
+    }
+
+    private void handleGameState(AsocijacijeSessionRepository.GameState gameState) {
+        if (gameState == null) {
+            if (canControlGameFlow && sessionInfo != null && !initializeRequested) {
+                initializeGame();
+            } else {
+                showWaitingForGameState();
+                scheduleGameRefreshRetry();
+            }
+            return;
+        }
+
+        waitingForGameRetryScheduled = false;
+        currentState = gameState;
+        updatePlayerNames();
+        updateScoreViews(gameState.ownerScore, gameState.guestScore);
+
+        if (mySide().equals(gameState.activeSide)) {
+            turnFlipRequested = false;
+        }
+
+        if (!safePhase(gameState).equals(lastObservedPhase)) {
+            phaseAdvanceRequested = false;
+            resultAdvanceScheduled = false;
+            stopTimer();
+            handlePhaseEntered(gameState);
         } else {
-            updateScoreViews();
-            if (solvedFinal) {
-                finishGame();
-            }
+            renderState(gameState);
         }
+
+        flipTurnAfterForfeitIfNeeded(gameState);
+        lastObservedPhase = safePhase(gameState);
     }
 
-    private void revealColumnSolution(char col) {
-        switch (col) {
-            case 'A':
-                for (int i = 0; i < 4; i++) {
-                    cellsA[i].setText(itemsA[i]);
-                    cellsA[i].setBackgroundTintList(ColorStateList.valueOf(COLOR_SOLVED));
-                }
-                tvAnswerA.setText(solutionA);
-                tvAnswerA.setBackgroundColor(COLOR_SOLVED);
-                tvAnswerA.setAlpha(1f);
-                break;
-            case 'B':
-                for (int i = 0; i < 4; i++) {
-                    cellsB[i].setText(itemsB[i]);
-                    cellsB[i].setBackgroundTintList(ColorStateList.valueOf(COLOR_SOLVED));
-                }
-                tvAnswerB.setText(solutionB);
-                tvAnswerB.setBackgroundColor(COLOR_SOLVED);
-                tvAnswerB.setAlpha(1f);
-                break;
-            case 'C':
-                for (int i = 0; i < 4; i++) {
-                    cellsC[i].setText(itemsC[3 - i]);
-                    cellsC[i].setBackgroundTintList(ColorStateList.valueOf(COLOR_SOLVED));
-                }
-                tvAnswerC.setText(solutionC);
-                tvAnswerC.setBackgroundColor(COLOR_SOLVED);
-                tvAnswerC.setAlpha(1f);
-                break;
-            case 'D':
-                for (int i = 0; i < 4; i++) {
-                    cellsD[i].setText(itemsD[3 - i]);
-                    cellsD[i].setBackgroundTintList(ColorStateList.valueOf(COLOR_SOLVED));
-                }
-                tvAnswerD.setText(solutionD);
-                tvAnswerD.setBackgroundColor(COLOR_SOLVED);
-                tvAnswerD.setAlpha(1f);
-                break;
-        }
+    private String safePhase(AsocijacijeSessionRepository.GameState state) {
+        return state.phase != null ? state.phase : "";
     }
 
-    private void revealFinalSolution() {
-        tvAnswerFinal.setText(solutionFinal);
-        tvAnswerFinal.setBackgroundColor(COLOR_SOLVED);
-        tvAnswerFinal.setAlpha(1f);
-    }
-
-    private int calcColumnPoints(boolean[] revealed) {
-        int hidden = 0;
-        for (boolean r : revealed) if (!r) hidden++;
-        return 2 + hidden;
-    }
-
-    private int calcFinalPoints() {
-        int points = 7;
-        if (!solvedA) points += 6;
-        if (!solvedB) points += 6;
-        if (!solvedC) points += 6;
-        if (!solvedD) points += 6;
-        return points;
-    }
-
-    private void addPoints(int pts) {
-        // TODO: u pravoj igri razlikovati igraca ciji je potez
-        player1Score += pts;
-    }
-
-    private void updateScoreViews() {
-        tvPlayer1Score.setText(player1Score + " bodova");
-        tvPlayer2Score.setText(player2Score + " bodova");
-    }
-
-    private void startTimer() {
-        timeLeftSeconds = (int) (ROUND_DURATION_MS / 1000);
-        progressTimer.setMax(timeLeftSeconds);
-        progressTimer.setProgress(timeLeftSeconds);
-
-        countDownTimer = new CountDownTimer(ROUND_DURATION_MS, 1000) {
+    private void initializeGame() {
+        initializeRequested = true;
+        tvRoundLabel.setText("Priprema asocijacija iz baze...");
+        setRepository.loadSets(2, new FirestoreAsocijacijeRepository.LoadSetsCallback() {
             @Override
-            public void onTick(long millisUntilFinished) {
-                timeLeftSeconds = (int) (millisUntilFinished / 1000);
-                tvTimer.setText(String.valueOf(timeLeftSeconds));
-                progressTimer.setProgress(timeLeftSeconds);
-
-                if (timeLeftSeconds <= 10) {
-                    progressTimer.setIndicatorColor(Color.parseColor("#E53935"));
-                    tvTimer.setTextColor(Color.parseColor("#E53935"));
+            public void onSuccess(List<AsocijacijeSet> sets) {
+                if (sets.size() < 2) {
+                    runOnUiThread(() -> Toast.makeText(AsocijacijeActivity.this,
+                            "Nema dovoljno asocijacija u bazi", Toast.LENGTH_LONG).show());
+                    return;
                 }
+                sessionRepository.initializeGame(gameDocId, sessionInfo, sets,
+                        new AsocijacijeSessionRepository.RepositoryCallback() {
+                            @Override
+                            public void onSuccess() {
+                            }
+
+                            @Override
+                            public void onError(String message) {
+                                initializeRequested = false;
+                                runOnUiThread(() -> Toast.makeText(AsocijacijeActivity.this, message, Toast.LENGTH_LONG).show());
+                            }
+                        });
             }
 
             @Override
-            public void onFinish() {
-                tvTimer.setText("0");
-                progressTimer.setProgress(0);
-                onTimeUp();
+            public void onError(String message) {
+                initializeRequested = false;
+                runOnUiThread(() -> Toast.makeText(AsocijacijeActivity.this, message, Toast.LENGTH_LONG).show());
             }
-        }.start();
+        });
     }
 
-    private void onTimeUp() {
-        canReveal = false;
-        etGuess.setEnabled(false);
-        btnConfirm.setEnabled(false);
-        btnClear.setEnabled(false);
-
-        if (!solvedA) revealColumnSolution('A');
-        if (!solvedB) revealColumnSolution('B');
-        if (!solvedC) revealColumnSolution('C');
-        if (!solvedD) revealColumnSolution('D');
-        if (!solvedFinal) revealFinalSolution();
-
-        Toast.makeText(this, "Vreme je isteklo!", Toast.LENGTH_SHORT).show();
-
-        finishGame();
+    private void showWaitingForGameState() {
+        currentState = null;
+        stopTimer();
+        setInputEnabled(false, false, false);
+        tvRoundLabel.setText("Cekanje da protivnik pokrene igru...");
     }
 
-    private void finishGame() {
-        if (gameFinished) {
+    private void scheduleGameRefreshRetry() {
+        if (waitingForGameRetryScheduled || canControlGameFlow) {
+            return;
+        }
+        waitingForGameRetryScheduled = true;
+        tvRoundLabel.postDelayed(() -> {
+            waitingForGameRetryScheduled = false;
+            if (currentState == null) {
+                sessionRepository.fetchGameOnce(gameDocId, new AsocijacijeSessionRepository.GameStateListener() {
+                    @Override
+                    public void onGameStateChanged(AsocijacijeSessionRepository.GameState gameState) {
+                        runOnUiThread(() -> handleGameState(gameState));
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        runOnUiThread(() -> scheduleGameRefreshRetry());
+                    }
+                });
+            }
+        }, 1200);
+    }
+
+    private void handlePhaseEntered(AsocijacijeSessionRepository.GameState state) {
+        renderState(state);
+
+        if (AsocijacijeSessionRepository.PHASE_FINISHED.equals(state.phase)) {
+            showFinalResult(state);
             return;
         }
 
-        gameFinished = true;
-        if (countDownTimer != null) {
-            countDownTimer.cancel();
-        }
-        canReveal = false;
-        etGuess.setEnabled(false);
-        btnConfirm.setEnabled(false);
-        btnClear.setEnabled(false);
-        btnBack.setText(challengeMode ? "Nazad u izazov" : (partyId != null ? "Nazad u partiju" : "Zatvori"));
-
-        if (challengeMode) {
-            submitChallengeScore(player1Score);
+        if (AsocijacijeSessionRepository.PHASE_ROUND_RESULT.equals(state.phase)) {
+            stopTimer();
+            scheduleResultAdvance(state);
             return;
         }
 
-        if (partyId == null) {
-            Toast.makeText(this, "Kraj igre. Rezultat: " + player1Score, Toast.LENGTH_LONG).show();
+        startRoundTimer(state);
+    }
+
+    private void scheduleResultAdvance(AsocijacijeSessionRepository.GameState state) {
+        if (!canControlGameFlow || resultAdvanceScheduled) {
             return;
         }
+        resultAdvanceScheduled = true;
+        final int roundAtSchedule = state.currentRound;
+        tvRoundLabel.postDelayed(() -> {
+            if (currentState == null
+                    || !AsocijacijeSessionRepository.PHASE_ROUND_RESULT.equals(currentState.phase)
+                    || currentState.currentRound != roundAtSchedule
+                    || !canControlGameFlow) {
+                return;
+            }
+            if (roundAtSchedule == 1) {
+                String round2Side = opponentForfeited ? mySide() : AsocijacijeSessionRepository.SIDE_GUEST;
+                sessionRepository.advancePhase(gameDocId, AsocijacijeSessionRepository.PHASE_ROUND2, 2,
+                        round2Side, true, new ArrayList<>(), new HashMap<>(), null,
+                        currentState.ownerScore, currentState.guestScore,
+                        currentState.ownerFinals, currentState.guestFinals, "",
+                        repositoryToastCallback());
+            } else {
+                finishSyncedGame(currentState);
+            }
+        }, 3000);
+    }
 
-        partyRepository.submitPlayerGameScoreAndAdvance(partyId, gameKey, currentUserId, player1Score,
-                new PartyRepository.OperationCallback() {
+    private void finishSyncedGame(AsocijacijeSessionRepository.GameState state) {
+        String winner = determineWinner(state.ownerScore, state.guestScore);
+        String message = buildFinalResultMessage(state.ownerScore, state.guestScore, winner);
+        sessionRepository.finishGame(gameDocId, state.ownerScore, state.guestScore, winner, message,
+                new AsocijacijeSessionRepository.RepositoryCallback() {
                     @Override
                     public void onSuccess() {
-                        runOnUiThread(() -> {
-                            Toast.makeText(AsocijacijeActivity.this,
-                                    "Rezultat poslat.",
-                                    Toast.LENGTH_SHORT).show();
-                            finish();
-                        });
+                        recordStatsIfNeeded(state, winner);
+                        finishPartyGameIfNeeded(state.ownerScore, state.guestScore);
                     }
 
                     @Override
@@ -455,6 +490,502 @@ public class AsocijacijeActivity extends AppCompatActivity {
                         runOnUiThread(() -> Toast.makeText(AsocijacijeActivity.this, message, Toast.LENGTH_SHORT).show());
                     }
                 });
+    }
+
+    private void recordStatsIfNeeded(AsocijacijeSessionRepository.GameState state, String winner) {
+        if (statsRecorded || !countsForStats || sessionInfo == null
+                || sessionInfo.ownerId == null || sessionInfo.guestId == null) {
+            return;
+        }
+        statsRecorded = true;
+        profileStatsUpdater.recordAsocijacije(sessionInfo.ownerId, sessionInfo.guestId,
+                state.ownerScore, state.guestScore, winner, state.ownerFinals, state.guestFinals, 2);
+    }
+
+    private void finishPartyGameIfNeeded(int ownerScore, int guestScore) {
+        if (partyId == null || !canControlGameFlow || partyFinishSubmitted) {
+            return;
+        }
+        partyFinishSubmitted = true;
+        partyRepository.finishGameAndAdvance(partyId, gameKey, ownerScore, guestScore,
+                new PartyRepository.OperationCallback() {
+                    @Override
+                    public void onSuccess() {
+                        runOnUiThread(() -> finish());
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        partyFinishSubmitted = false;
+                        runOnUiThread(() -> Toast.makeText(AsocijacijeActivity.this, message, Toast.LENGTH_SHORT).show());
+                    }
+                });
+    }
+
+    private void showFinalResult(AsocijacijeSessionRepository.GameState state) {
+        stopTimer();
+        setInputEnabled(false, false, false);
+        btnBack.setText(partyId != null ? "Nazad u partiju" : "Zatvori");
+        String message = state.resultMessage != null && !state.resultMessage.trim().isEmpty()
+                ? state.resultMessage
+                : buildFinalResultMessage(state.ownerScore, state.guestScore, state.winner);
+        tvRoundLabel.setText(message);
+    }
+
+    private void onCellClicked(char column, int index) {
+        if (!syncedMode) {
+            onSoloCellClicked(column, index);
+            return;
+        }
+
+        AsocijacijeSessionRepository.GameState state = currentState;
+        if (state == null || !isActivePhase(state) || !isMyTurn(state) || !effectiveMustOpen(state)) {
+            return;
+        }
+
+        String key = fieldKey(column, index);
+        if (state.openedFields.contains(key) || state.solvedColumns.containsKey(String.valueOf(column))) {
+            return;
+        }
+
+        List<String> opened = new ArrayList<>(state.openedFields);
+        opened.add(key);
+
+        sessionRepository.updateMove(gameDocId, state.activeSide, false, opened,
+                state.solvedColumns, state.finalSolvedBy,
+                state.ownerScore, state.guestScore, state.ownerFinals, state.guestFinals,
+                "", repositoryToastCallback());
+    }
+
+    private void handleGuessSynced(String rawGuess) {
+        AsocijacijeSessionRepository.GameState state = currentState;
+        if (state == null || !isActivePhase(state) || !isMyTurn(state)
+                || effectiveMustOpen(state) || phaseAdvanceRequested) {
+            return;
+        }
+
+        AsocijacijeSet set = state.activeSet();
+        if (set == null) {
+            return;
+        }
+
+        String guess = normalize(rawGuess);
+        String side = mySide();
+        int ownerScore = state.ownerScore;
+        int guestScore = state.guestScore;
+
+        for (char column : COLUMNS) {
+            String colKey = String.valueOf(column);
+            if (state.solvedColumns.containsKey(colKey)) {
+                continue;
+            }
+            if (guess.equalsIgnoreCase(normalize(set.getColumnSolution(column)))) {
+                int points = 2 + hiddenCount(column, state.openedFields);
+                if (isOwner) ownerScore += points;
+                else guestScore += points;
+
+                Map<String, String> solved = new HashMap<>(state.solvedColumns);
+                solved.put(colKey, side);
+
+                sessionRepository.updateMove(gameDocId, state.activeSide, false, state.openedFields,
+                        solved, state.finalSolvedBy, ownerScore, guestScore,
+                        state.ownerFinals, state.guestFinals,
+                        "Kolona " + column + " resena! +" + points + " bodova.",
+                        repositoryToastCallback());
+                return;
+            }
+        }
+
+        if (guess.equalsIgnoreCase(normalize(set.getFinalSolution()))) {
+            int points = calcFinalPoints(state);
+            int ownerFinals = state.ownerFinals;
+            int guestFinals = state.guestFinals;
+            if (isOwner) {
+                ownerScore += points;
+                ownerFinals++;
+            } else {
+                guestScore += points;
+                guestFinals++;
+            }
+
+            phaseAdvanceRequested = true;
+            sessionRepository.advancePhase(gameDocId, AsocijacijeSessionRepository.PHASE_ROUND_RESULT,
+                    state.currentRound, state.activeSide, false, state.openedFields, state.solvedColumns,
+                    side, ownerScore, guestScore, ownerFinals, guestFinals,
+                    "Konacno resenje pogodjeno! +" + points + " bodova.",
+                    repositoryErrorResetCallback());
+            return;
+        }
+
+        String nextSide = opponentForfeited ? side : otherSide(side);
+        sessionRepository.updateMove(gameDocId, nextSide, true, state.openedFields,
+                state.solvedColumns, state.finalSolvedBy, ownerScore, guestScore,
+                state.ownerFinals, state.guestFinals,
+                "Netacan odgovor.", repositoryToastCallback());
+    }
+
+    private void handlePass() {
+        if (!syncedMode) {
+            return;
+        }
+        AsocijacijeSessionRepository.GameState state = currentState;
+        if (state == null || !isActivePhase(state) || !isMyTurn(state) || effectiveMustOpen(state)) {
+            return;
+        }
+        String side = mySide();
+        String nextSide = opponentForfeited ? side : otherSide(side);
+        sessionRepository.updateMove(gameDocId, nextSide, true, state.openedFields,
+                state.solvedColumns, state.finalSolvedBy,
+                state.ownerScore, state.guestScore, state.ownerFinals, state.guestFinals,
+                "Potez je prepusten.", repositoryToastCallback());
+    }
+
+    private void flipTurnAfterForfeitIfNeeded(AsocijacijeSessionRepository.GameState state) {
+        if (!opponentForfeited || state == null || turnFlipRequested || phaseAdvanceRequested
+                || !isActivePhase(state)) {
+            return;
+        }
+        if (mySide().equals(state.activeSide)) {
+            return;
+        }
+        turnFlipRequested = true;
+        sessionRepository.updateMove(gameDocId, mySide(), true, state.openedFields,
+                state.solvedColumns, state.finalSolvedBy,
+                state.ownerScore, state.guestScore, state.ownerFinals, state.guestFinals,
+                "Protivnik je odustao. Nastavljate bez cekanja.",
+                new AsocijacijeSessionRepository.RepositoryCallback() {
+                    @Override
+                    public void onSuccess() {
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        turnFlipRequested = false;
+                    }
+                });
+    }
+
+    private void startRoundTimer(AsocijacijeSessionRepository.GameState state) {
+        stopTimer();
+
+        int secondsLeft = getRemainingSeconds(state);
+        progressTimer.setMax(ROUND_DURATION_SECONDS);
+        progressTimer.setProgress(secondsLeft);
+        tvTimer.setText(String.valueOf(secondsLeft));
+        resetTimerStyle();
+
+        if (secondsLeft <= 0) {
+            advanceAfterTimeout();
+            return;
+        }
+
+        countDownTimer = new CountDownTimer(secondsLeft * 1000L, 1000L) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                int updatedSecondsLeft = (int) Math.ceil(millisUntilFinished / 1000.0);
+                tvTimer.setText(String.valueOf(updatedSecondsLeft));
+                progressTimer.setProgress(updatedSecondsLeft);
+                if (updatedSecondsLeft <= 10) {
+                    tvTimer.setTextColor(Color.parseColor("#E53935"));
+                    progressTimer.setIndicatorColor(Color.parseColor("#E53935"));
+                }
+            }
+
+            @Override
+            public void onFinish() {
+                tvTimer.setText("0");
+                progressTimer.setProgress(0);
+                advanceAfterTimeout();
+            }
+        }.start();
+    }
+
+    private void advanceAfterTimeout() {
+        AsocijacijeSessionRepository.GameState state = currentState;
+        if (state == null || phaseAdvanceRequested || !isActivePhase(state)) {
+            return;
+        }
+        boolean shouldWrite = isMyTurn(state) || (canControlGameFlow && opponentForfeited);
+        if (!shouldWrite) {
+            return;
+        }
+        phaseAdvanceRequested = true;
+        sessionRepository.advancePhase(gameDocId, AsocijacijeSessionRepository.PHASE_ROUND_RESULT,
+                state.currentRound, state.activeSide, false, state.openedFields, state.solvedColumns,
+                state.finalSolvedBy, state.ownerScore, state.guestScore,
+                state.ownerFinals, state.guestFinals, "Vreme je isteklo.",
+                repositoryErrorResetCallback());
+    }
+
+    private void renderState(AsocijacijeSessionRepository.GameState state) {
+        AsocijacijeSet set = state.activeSet();
+        if (set == null) {
+            return;
+        }
+
+        boolean revealAll = AsocijacijeSessionRepository.PHASE_ROUND_RESULT.equals(state.phase)
+                || AsocijacijeSessionRepository.PHASE_FINISHED.equals(state.phase);
+
+        renderColumns(set, state.openedFields, state.solvedColumns, state.finalSolvedBy, revealAll);
+        updateScoreViews(state.ownerScore, state.guestScore);
+        updateStatusLabel(state);
+        updateInputForState(state);
+    }
+
+    private void updateInputForState(AsocijacijeSessionRepository.GameState state) {
+        boolean active = isActivePhase(state);
+        boolean myTurn = active && isMyTurn(state);
+        boolean mustOpen = myTurn && effectiveMustOpen(state);
+        setInputEnabled(mustOpen, myTurn && !mustOpen, myTurn && !mustOpen);
+    }
+
+    private void updateStatusLabel(AsocijacijeSessionRepository.GameState state) {
+        String base;
+        if (AsocijacijeSessionRepository.PHASE_FINISHED.equals(state.phase)) {
+            base = "Igra je zavrsena.";
+        } else if (AsocijacijeSessionRepository.PHASE_ROUND_RESULT.equals(state.phase)) {
+            base = "Runda " + state.currentRound + "/2 je zavrsena.";
+        } else {
+            String roundPrefix = "RUNDA " + state.currentRound + "/2 — ";
+            if (isMyTurn(state)) {
+                base = roundPrefix + (effectiveMustOpen(state)
+                        ? "TVOJ POTEZ: otvori polje"
+                        : "Pogadjaj resenje ili pritisni Dalje");
+            } else {
+                base = roundPrefix + "Protivnik igra...";
+            }
+        }
+
+        String result = state.resultMessage != null ? state.resultMessage.trim() : "";
+        tvRoundLabel.setText(result.isEmpty() ? base : base + " " + result);
+    }
+
+    private boolean isActivePhase(AsocijacijeSessionRepository.GameState state) {
+        return AsocijacijeSessionRepository.PHASE_ROUND1.equals(state.phase)
+                || AsocijacijeSessionRepository.PHASE_ROUND2.equals(state.phase);
+    }
+
+    private boolean isMyTurn(AsocijacijeSessionRepository.GameState state) {
+        return isActivePhase(state) && mySide().equals(state.activeSide);
+    }
+
+    private String mySide() {
+        return isOwner ? AsocijacijeSessionRepository.SIDE_OWNER : AsocijacijeSessionRepository.SIDE_GUEST;
+    }
+
+    private String otherSide(String side) {
+        return AsocijacijeSessionRepository.SIDE_OWNER.equals(side)
+                ? AsocijacijeSessionRepository.SIDE_GUEST
+                : AsocijacijeSessionRepository.SIDE_OWNER;
+    }
+
+    private boolean effectiveMustOpen(AsocijacijeSessionRepository.GameState state) {
+        return state.mustOpen && hasOpenableField(state);
+    }
+
+    private boolean hasOpenableField(AsocijacijeSessionRepository.GameState state) {
+        for (char column : COLUMNS) {
+            if (state.solvedColumns.containsKey(String.valueOf(column))) {
+                continue;
+            }
+            for (int i = 0; i < 4; i++) {
+                if (!state.openedFields.contains(fieldKey(column, i))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private int hiddenCount(char column, List<String> openedFields) {
+        int hidden = 0;
+        for (int i = 0; i < 4; i++) {
+            if (!openedFields.contains(fieldKey(column, i))) {
+                hidden++;
+            }
+        }
+        return hidden;
+    }
+
+    private int calcFinalPoints(AsocijacijeSessionRepository.GameState state) {
+        int points = 7;
+        for (char column : COLUMNS) {
+            if (state.solvedColumns.containsKey(String.valueOf(column))) {
+                continue;
+            }
+            int hidden = hiddenCount(column, state.openedFields);
+            points += (hidden == 4) ? 6 : (2 + hidden);
+        }
+        return points;
+    }
+
+    private String fieldKey(char column, int index) {
+        return column + String.valueOf(index);
+    }
+
+    private void startSoloMode() {
+        tvRoundLabel.setText("Priprema asocijacija iz baze...");
+        btnPass.setEnabled(false);
+        setRepository.loadSets(2, new FirestoreAsocijacijeRepository.LoadSetsCallback() {
+            @Override
+            public void onSuccess(List<AsocijacijeSet> sets) {
+                if (sets.size() < 2) {
+                    runOnUiThread(() -> Toast.makeText(AsocijacijeActivity.this,
+                            "Nema dovoljno asocijacija u bazi", Toast.LENGTH_LONG).show());
+                    return;
+                }
+                soloSets = sets;
+                runOnUiThread(() -> startSoloRound(1));
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> Toast.makeText(AsocijacijeActivity.this, message, Toast.LENGTH_LONG).show());
+            }
+        });
+    }
+
+    private void startSoloRound(int round) {
+        soloRound = round;
+        soloOpened = new HashSet<>();
+        soloSolved = new HashMap<>();
+        soloFinalSolved = false;
+        soloRoundRunning = true;
+
+        renderColumns(soloActiveSet(), new ArrayList<>(soloOpened), soloSolved, null, false);
+        tvRoundLabel.setText("RUNDA " + round + "/2 — otvaraj polja i pogadjaj");
+        updateScoreViews(soloScore, 0);
+        setInputEnabled(true, true, false);
+        startSoloTimer();
+    }
+
+    private AsocijacijeSet soloActiveSet() {
+        return soloSets.get(soloRound - 1);
+    }
+
+    private void startSoloTimer() {
+        stopTimer();
+        progressTimer.setMax(ROUND_DURATION_SECONDS);
+        progressTimer.setProgress(ROUND_DURATION_SECONDS);
+        tvTimer.setText(String.valueOf(ROUND_DURATION_SECONDS));
+        resetTimerStyle();
+
+        countDownTimer = new CountDownTimer(ROUND_DURATION_SECONDS * 1000L, 1000L) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                int secondsLeft = (int) Math.ceil(millisUntilFinished / 1000.0);
+                tvTimer.setText(String.valueOf(secondsLeft));
+                progressTimer.setProgress(secondsLeft);
+                if (secondsLeft <= 10) {
+                    tvTimer.setTextColor(Color.parseColor("#E53935"));
+                    progressTimer.setIndicatorColor(Color.parseColor("#E53935"));
+                }
+            }
+
+            @Override
+            public void onFinish() {
+                tvTimer.setText("0");
+                progressTimer.setProgress(0);
+                endSoloRound("Vreme je isteklo.");
+            }
+        }.start();
+    }
+
+    private void onSoloCellClicked(char column, int index) {
+        if (!soloRoundRunning || soloSolved.containsKey(String.valueOf(column))) {
+            return;
+        }
+        String key = fieldKey(column, index);
+        if (soloOpened.contains(key)) {
+            return;
+        }
+        soloOpened.add(key);
+        renderColumns(soloActiveSet(), new ArrayList<>(soloOpened), soloSolved, null, false);
+    }
+
+    private void handleGuessSolo(String rawGuess) {
+        if (!soloRoundRunning) {
+            return;
+        }
+
+        AsocijacijeSet set = soloActiveSet();
+        String guess = normalize(rawGuess);
+
+        for (char column : COLUMNS) {
+            String colKey = String.valueOf(column);
+            if (soloSolved.containsKey(colKey)) {
+                continue;
+            }
+            if (guess.equalsIgnoreCase(normalize(set.getColumnSolution(column)))) {
+                int points = 2 + soloHiddenCount(column);
+                soloScore += points;
+                soloSolved.put(colKey, "owner");
+                renderColumns(set, new ArrayList<>(soloOpened), soloSolved, null, false);
+                updateScoreViews(soloScore, 0);
+                tvRoundLabel.setText("RUNDA " + soloRound + "/2 — Kolona " + column + " resena! +" + points);
+                return;
+            }
+        }
+
+        if (guess.equalsIgnoreCase(normalize(set.getFinalSolution()))) {
+            int points = 7;
+            for (char column : COLUMNS) {
+                if (soloSolved.containsKey(String.valueOf(column))) {
+                    continue;
+                }
+                int hidden = soloHiddenCount(column);
+                points += (hidden == 4) ? 6 : (2 + hidden);
+            }
+            soloScore += points;
+            soloFinals++;
+            soloFinalSolved = true;
+            updateScoreViews(soloScore, 0);
+            endSoloRound("Konacno resenje pogodjeno! +" + points + " bodova.");
+            return;
+        }
+
+        Toast.makeText(this, "Netacan odgovor!", Toast.LENGTH_SHORT).show();
+        etGuess.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#E53935")));
+        etGuess.postDelayed(() -> etGuess.setBackgroundTintList(null), 600);
+    }
+
+    private int soloHiddenCount(char column) {
+        int hidden = 0;
+        for (int i = 0; i < 4; i++) {
+            if (!soloOpened.contains(fieldKey(column, i))) {
+                hidden++;
+            }
+        }
+        return hidden;
+    }
+
+    private void endSoloRound(String message) {
+        if (!soloRoundRunning) {
+            return;
+        }
+        soloRoundRunning = false;
+        stopTimer();
+        setInputEnabled(false, false, false);
+        renderColumns(soloActiveSet(), new ArrayList<>(soloOpened), soloSolved,
+                soloFinalSolved ? "owner" : null, true);
+        tvRoundLabel.setText("RUNDA " + soloRound + "/2 zavrsena. " + message);
+
+        if (soloRound == 1) {
+            tvRoundLabel.postDelayed(() -> startSoloRound(2), 2500);
+        } else {
+            finishSolo();
+        }
+    }
+
+    private void finishSolo() {
+        soloFinished = true;
+        btnBack.setText(challengeMode ? "Nazad u izazov" : "Zatvori");
+        tvRoundLabel.setText("Kraj igre. Ukupno: " + soloScore + " bodova.");
+        if (challengeMode) {
+            submitChallengeScore(soloScore);
+        } else {
+            Toast.makeText(this, "Kraj igre. Rezultat: " + soloScore, Toast.LENGTH_LONG).show();
+        }
     }
 
     private void submitChallengeScore(int score) {
@@ -494,6 +1025,128 @@ public class AsocijacijeActivity extends AppCompatActivity {
         });
     }
 
+    private void renderColumns(AsocijacijeSet set, List<String> openedFields, Map<String, String> solvedColumns,
+                               String finalSolvedBy, boolean revealAll) {
+        renderColumn('A', cellsA, tvAnswerA, COLOR_A, set, openedFields, solvedColumns, revealAll);
+        renderColumn('B', cellsB, tvAnswerB, COLOR_B, set, openedFields, solvedColumns, revealAll);
+        renderColumn('C', cellsC, tvAnswerC, COLOR_C, set, openedFields, solvedColumns, revealAll);
+        renderColumn('D', cellsD, tvAnswerD, COLOR_D, set, openedFields, solvedColumns, revealAll);
+
+        if (finalSolvedBy != null) {
+            tvAnswerFinal.setText(set.getFinalSolution());
+            tvAnswerFinal.setBackgroundColor(COLOR_SOLVED);
+            tvAnswerFinal.setAlpha(1f);
+        } else if (revealAll) {
+            tvAnswerFinal.setText(set.getFinalSolution());
+            tvAnswerFinal.setBackgroundColor(COLOR_REVEALED);
+            tvAnswerFinal.setAlpha(1f);
+        } else {
+            tvAnswerFinal.setText("KONACNO");
+            tvAnswerFinal.setBackgroundColor(Color.parseColor("#6200EE"));
+            tvAnswerFinal.setAlpha(1f);
+        }
+    }
+
+    private void renderColumn(char column, Button[] cells, TextView answerView, int baseColor,
+                              AsocijacijeSet set, List<String> openedFields, Map<String, String> solvedColumns,
+                              boolean revealAll) {
+        List<String> items = set.getColumnItems(column);
+        boolean solved = solvedColumns.containsKey(String.valueOf(column));
+
+        for (int i = 0; i < 4; i++) {
+            boolean opened = openedFields.contains(fieldKey(column, i));
+            if (solved) {
+                cells[i].setText(items.get(i));
+                cells[i].setBackgroundTintList(ColorStateList.valueOf(COLOR_SOLVED));
+            } else if (opened) {
+                cells[i].setText(items.get(i));
+                cells[i].setBackgroundTintList(ColorStateList.valueOf(lighten(baseColor)));
+            } else if (revealAll) {
+                cells[i].setText(items.get(i));
+                cells[i].setBackgroundTintList(ColorStateList.valueOf(COLOR_REVEALED));
+            } else {
+                cells[i].setText(column + String.valueOf(i + 1));
+                cells[i].setBackgroundTintList(ColorStateList.valueOf(baseColor));
+            }
+        }
+
+        if (solved) {
+            answerView.setText(set.getColumnSolution(column));
+            answerView.setBackgroundColor(COLOR_SOLVED);
+            answerView.setAlpha(1f);
+        } else if (revealAll) {
+            answerView.setText(set.getColumnSolution(column));
+            answerView.setBackgroundColor(COLOR_REVEALED);
+            answerView.setAlpha(1f);
+        } else {
+            answerView.setText(String.valueOf(column));
+            answerView.setBackgroundColor(Color.parseColor("#424275"));
+            answerView.setAlpha(1f);
+        }
+    }
+
+    private void setInputEnabled(boolean cellsEnabled, boolean guessEnabled, boolean passEnabled) {
+        for (int i = 0; i < 4; i++) {
+            cellsA[i].setEnabled(cellsEnabled);
+            cellsB[i].setEnabled(cellsEnabled);
+            cellsC[i].setEnabled(cellsEnabled);
+            cellsD[i].setEnabled(cellsEnabled);
+        }
+        etGuess.setEnabled(guessEnabled);
+        btnConfirm.setEnabled(guessEnabled);
+        btnClear.setEnabled(guessEnabled);
+        btnPass.setEnabled(passEnabled);
+    }
+
+    private void updatePlayerNames() {
+        if (!syncedMode || sessionInfo == null) {
+            return;
+        }
+        tvPlayer1Name.setText(sessionInfo.ownerUsername != null ? sessionInfo.ownerUsername : "Igrac 1");
+        tvPlayer2Name.setText(sessionInfo.guestUsername != null ? sessionInfo.guestUsername : "Igrac 2");
+    }
+
+    private void updateScoreViews(int ownerScore, int guestScore) {
+        tvPlayer1Score.setText(ownerScore + " bodova");
+        tvPlayer2Score.setText(syncedMode ? guestScore + " bodova" : "");
+    }
+
+    private int getRemainingSeconds(AsocijacijeSessionRepository.GameState state) {
+        if (state.phaseStartedAtMs == null) {
+            return ROUND_DURATION_SECONDS;
+        }
+        long elapsedMs = Math.max(0L, System.currentTimeMillis() - state.phaseStartedAtMs);
+        int remaining = ROUND_DURATION_SECONDS - (int) (elapsedMs / 1000L);
+        return Math.max(0, Math.min(ROUND_DURATION_SECONDS, remaining));
+    }
+
+    private String determineWinner(int ownerScore, int guestScore) {
+        if (ownerScore > guestScore) return "owner";
+        if (guestScore > ownerScore) return "guest";
+        return "draw";
+    }
+
+    private String buildFinalResultMessage(int ownerScore, int guestScore, String winner) {
+        if ("draw".equals(winner)) {
+            return "Nereseno! Rezultat je " + ownerScore + " : " + guestScore;
+        }
+        boolean currentUserWon = (isOwner && "owner".equals(winner)) || (!isOwner && "guest".equals(winner));
+        return (currentUserWon ? "Pobedili ste! " : "Izgubili ste. ")
+                + "Rezultat je " + ownerScore + " : " + guestScore;
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim().toUpperCase()
+                .replace('Ž', 'Z')
+                .replace('Đ', 'D')
+                .replace('Č', 'C')
+                .replace('Š', 'S')
+                .replace('Ć', 'C');
+    }
+
     private int lighten(int color) {
         float[] hsv = new float[3];
         Color.colorToHSV(color, hsv);
@@ -501,9 +1154,54 @@ public class AsocijacijeActivity extends AppCompatActivity {
         return Color.HSVToColor(hsv);
     }
 
+    private AsocijacijeSessionRepository.RepositoryCallback repositoryToastCallback() {
+        return new AsocijacijeSessionRepository.RepositoryCallback() {
+            @Override
+            public void onSuccess() {
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> Toast.makeText(AsocijacijeActivity.this, message, Toast.LENGTH_SHORT).show());
+            }
+        };
+    }
+
+    private AsocijacijeSessionRepository.RepositoryCallback repositoryErrorResetCallback() {
+        return new AsocijacijeSessionRepository.RepositoryCallback() {
+            @Override
+            public void onSuccess() {
+            }
+
+            @Override
+            public void onError(String message) {
+                phaseAdvanceRequested = false;
+                runOnUiThread(() -> Toast.makeText(AsocijacijeActivity.this, message, Toast.LENGTH_SHORT).show());
+            }
+        };
+    }
+
+    private void resetTimerStyle() {
+        tvTimer.setTextColor(Color.parseColor("#1E1E1E"));
+        progressTimer.setIndicatorColor(Color.parseColor("#6200EE"));
+    }
+
+    private void stopTimer() {
+        if (countDownTimer != null) {
+            countDownTimer.cancel();
+            countDownTimer = null;
+        }
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (countDownTimer != null) countDownTimer.cancel();
+        stopTimer();
+        if (gameListener != null) {
+            gameListener.remove();
+        }
+        if (partyListener != null) {
+            partyListener.remove();
+        }
     }
 }

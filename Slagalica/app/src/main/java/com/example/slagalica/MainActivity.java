@@ -7,6 +7,7 @@ import com.example.slagalica.chat.ChatRepository;
 import com.example.slagalica.leagues.LeagueNotificationRepository;
 import com.example.slagalica.leagues.LeagueUiHelper;
 import com.example.slagalica.notifications.NotificationChannelManager;
+import com.example.slagalica.notifications.NotificationsActivity;
 import com.example.slagalica.party.FriendlyInviteActivity;
 import com.example.slagalica.party.FriendlyInviteRepository;
 import com.example.slagalica.profile.UserProfile;
@@ -56,6 +57,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvTokensStars;
     private FirebaseManager firebaseManager;
     private UserProfileRepository profileRepository;
+    private Button btnOpenNotifications;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,6 +86,7 @@ public class MainActivity extends AppCompatActivity {
         btnOpenChat = findViewById(R.id.btnOpenChat);
         btnOpenChallenges = findViewById(R.id.btnOpenChallenges);
         btnOpenRegions = findViewById(R.id.btnOpenRegions);
+        btnOpenNotifications = findViewById(R.id.btnOpenNotifications);
         tvLoggedInUser = findViewById(R.id.tvLoggedInUser);
         tvTokensStars = findViewById(R.id.tvTokensStars);
 
@@ -144,6 +147,7 @@ public class MainActivity extends AppCompatActivity {
         btnOpenChat.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, ChatActivity.class)));
         btnOpenChallenges.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, ChallengeActivity.class)));
         btnOpenRegions.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, RegionMapActivity.class)));
+        btnOpenNotifications.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, NotificationsActivity.class)));
     }
 
     private void loadProfileForMain(FirebaseUser user) {
