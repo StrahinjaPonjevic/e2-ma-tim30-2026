@@ -1,5 +1,6 @@
 package com.example.slagalica;
 
+import android.content.Context;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.view.View;
@@ -8,6 +9,7 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.auth.FirebaseManager;
@@ -208,16 +210,21 @@ public class KorakPoKorakActivity extends AppCompatActivity {
             }
         });
 
-        btnForfeit.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                forfeitGame();
-            }
-        });
+        btnForfeit.setOnClickListener(view -> showForfeitDialog(KorakPoKorakActivity.this, this::forfeitGame));
 
         disableAnswerInput();
     }
-
+    public static void showForfeitDialog(
+            Context context,
+            Runnable onForfeit
+    ) {
+        new AlertDialog.Builder(context)
+                .setTitle("Napustiti igru?")
+                .setMessage("Napuštanjem gubite celu partiju i ne dobijate zvezde.")
+                .setPositiveButton("Napusti", (dialog, which) -> onForfeit.run())
+                .setNegativeButton("Ostani", null)
+                .show();
+    }
     private void setupHeader() {
         tvPlayer1Name.setText("Igrač 1");
         tvPlayer2Name.setText("Igrač 2");

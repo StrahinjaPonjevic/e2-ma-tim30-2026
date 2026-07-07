@@ -14,6 +14,7 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.auth.FirebaseManager;
@@ -209,17 +210,31 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
         });
 
         btnConfirmExpression.setEnabled(false);
-        btnForfeit.setOnClickListener(v -> {
-            if (challengeMode) {
-                finish();
-            } else if (partyId != null) {
-                forfeitParty();
-            } else {
-                finish();
-            }
-        });
+        btnForfeit.setOnClickListener(view -> showForfeitDialog(MojBrojActivity.this, this::forfeitGame));
 
         setInputEnabled(false);
+    }
+
+    private void forfeitGame() {
+        if (challengeMode) {
+            finish();
+        } else if (partyId != null) {
+            forfeitParty();
+        } else {
+            finish();
+        }
+    }
+
+    public static void showForfeitDialog(
+            Context context,
+            Runnable onForfeit
+    ) {
+        new AlertDialog.Builder(context)
+                .setTitle("Napustiti igru?")
+                .setMessage("Napuštanjem gubite celu partiju i ne dobijate zvezde.")
+                .setPositiveButton("Napusti", (dialog, which) -> onForfeit.run())
+                .setNegativeButton("Ostani", null)
+                .show();
     }
 
     private void bindNumberButtons() {

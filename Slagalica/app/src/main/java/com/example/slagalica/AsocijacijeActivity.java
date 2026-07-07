@@ -9,6 +9,7 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.asocijacije.AsocijacijeSessionRepository;
@@ -77,6 +78,10 @@ public class AsocijacijeActivity extends AppCompatActivity {
     private boolean challengeScoreSubmitted = false;
     private boolean partyFinishSubmitted = false;
     private boolean statsRecorded = false;
+    private int partyOwnerTotal = 0;
+    private int partyGuestTotal = 0;
+    private int lastOwnerGameScore = 0;
+    private int lastGuestGameScore = 0;
 
     private AsocijacijeSessionRepository.SessionInfo sessionInfo;
     private AsocijacijeSessionRepository.GameState currentState;
@@ -126,7 +131,7 @@ public class AsocijacijeActivity extends AppCompatActivity {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         currentUserId = currentUser != null ? currentUser.getUid() : null;
 
-        syncedMode = partyId != null && !partyId.trim().isEmpty() && !challengeMode;
+        syncedMode = !challengeMode && sessionId != null && !sessionId.trim().isEmpty();
 
         bindViews();
         bindListeners();
@@ -204,13 +209,63 @@ public class AsocijacijeActivity extends AppCompatActivity {
         } else if (challengeMode) {
             btnBack.setText("Nazad u izazov");
         }
-        btnBack.setOnClickListener(v -> {
-            if (syncedMode && !isGameOver()) {
-                forfeitParty();
-            } else {
-                finish();
-            }
-        });
+        btnBack.setOnClickListener(v -> onQuitPressed());
+    }
+
+    private void onQuitPressed() {
+        if (isGameOver() || (!syncedMode && !soloRoundRunning)) {
+            finish();
+            return;
+        }
+        String message = partyId != null
+                ? "Napustanjem gubite celu partiju i ne dobijate zvezde. Protivnik nastavlja sam."
+                : (challengeMode
+                ? "Napustanjem gubite rezultat ove igre u izazovu."
+                : "Napustanjem prekidate igru u toku.");
+        new AlertDialog.Builder(this)
+                .setTitle("Napustiti igru?")
+                .setMessage(message)
+                .setPositiveButton("Napusti", (dialog, which) -> performQuit())
+                .setNegativeButton("Ostani", null)
+                .show();
+    }
+
+    private void performQuit() {
+        if (partyId != null && syncedMode) {
+            forfeitParty();
+            return;
+        }
+        if (syncedMode) {
+            abortGuestSessionGame();
+            return;
+        }
+        finish();
+    }
+
+    private void abortGuestSessionGame() {
+        AsocijacijeSessionRepository.GameState state = currentState;
+        if (state == null || AsocijacijeSessionRepository.PHASE_FINISHED.equals(state.phase)) {
+            finish();
+            return;
+        }
+        sessionRepository.finishGame(gameDocId, state.ownerScore, state.guestScore,
+                otherSide(mySide()), "Protivnik je napustio igru.",
+                new AsocijacijeSessionRepository.RepositoryCallback() {
+                    @Override
+                    public void onSuccess() {
+                        runOnUiThread(() -> finish());
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        runOnUiThread(() -> finish());
+                    }
+                });
+    }
+
+    @Override
+    public void onBackPressed() {
+        onQuitPressed();
     }
 
     private boolean isGameOver() {
@@ -320,6 +375,10 @@ public class AsocijacijeActivity extends AppCompatActivity {
             shouldControlFlow = true;
         }
         canControlGameFlow = shouldControlFlow;
+
+        partyOwnerTotal = party.ownerTotalScore;
+        partyGuestTotal = party.guestTotalScore;
+        updateScoreViews(lastOwnerGameScore, lastGuestGameScore);
 
         if (currentState == null) {
             if (opponentForfeited && canControlGameFlow && sessionInfo != null && !initializeRequested) {
@@ -493,7 +552,7 @@ public class AsocijacijeActivity extends AppCompatActivity {
     }
 
     private void recordStatsIfNeeded(AsocijacijeSessionRepository.GameState state, String winner) {
-        if (statsRecorded || !countsForStats || sessionInfo == null
+        if (statsRecorded || partyId == null || !countsForStats || sessionInfo == null
                 || sessionInfo.ownerId == null || sessionInfo.guestId == null) {
             return;
         }
@@ -1107,8 +1166,15 @@ public class AsocijacijeActivity extends AppCompatActivity {
     }
 
     private void updateScoreViews(int ownerScore, int guestScore) {
-        tvPlayer1Score.setText(ownerScore + " bodova");
-        tvPlayer2Score.setText(syncedMode ? guestScore + " bodova" : "");
+        lastOwnerGameScore = ownerScore;
+        lastGuestGameScore = guestScore;
+        if (partyId != null) {
+            tvPlayer1Score.setText(ownerScore + " bod | Partija: " + (partyOwnerTotal + ownerScore));
+            tvPlayer2Score.setText(guestScore + " bod | Partija: " + (partyGuestTotal + guestScore));
+        } else {
+            tvPlayer1Score.setText(ownerScore + " bodova");
+            tvPlayer2Score.setText(syncedMode ? guestScore + " bodova" : "");
+        }
     }
 
     private int getRemainingSeconds(AsocijacijeSessionRepository.GameState state) {

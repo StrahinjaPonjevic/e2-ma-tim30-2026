@@ -7,6 +7,7 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.auth.FirebaseManager;
@@ -158,7 +159,12 @@ public class KoZnaZnaActivity extends AppCompatActivity {
         }
         btnBack.setOnClickListener(v -> {
             if (partyId != null && !challengeMode) {
-                forfeitParty();
+                new AlertDialog.Builder(this)
+                        .setTitle("Napustiti igru?")
+                        .setMessage("Napustanjem gubite celu partiju i ne dobijate zvezde.")
+                        .setPositiveButton("Napusti", (dialog, which) -> forfeitParty())
+                        .setNegativeButton("Ostani", null)
+                        .show();
             } else {
                 finish();
             }

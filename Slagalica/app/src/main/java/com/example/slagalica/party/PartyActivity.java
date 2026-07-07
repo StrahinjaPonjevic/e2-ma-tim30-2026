@@ -6,6 +6,7 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.AsocijacijeActivity;
@@ -116,17 +117,26 @@ public class PartyActivity extends AppCompatActivity {
                 finish();
                 return;
             }
-            partyRepository.forfeitParty(latestParty.partyId, currentUser.getUid(), new PartyRepository.OperationCallback() {
-                @Override
-                public void onSuccess() {
-                    runOnUiThread(() -> Toast.makeText(PartyActivity.this, "Odustali ste od partije.", Toast.LENGTH_SHORT).show());
-                }
+            new AlertDialog.Builder(PartyActivity.this)
+                    .setTitle("Napustiti partiju?")
+                    .setMessage("Napustanjem gubite partiju i ne dobijate zvezde. Protivnik nastavlja sam.")
+                    .setPositiveButton("Napusti", (dialog, which) -> doForfeit())
+                    .setNegativeButton("Ostani", null)
+                    .show();
+        });
+    }
 
-                @Override
-                public void onError(String message) {
-                    runOnUiThread(() -> Toast.makeText(PartyActivity.this, message, Toast.LENGTH_SHORT).show());
-                }
-            });
+    private void doForfeit() {
+        partyRepository.forfeitParty(latestParty.partyId, currentUser.getUid(), new PartyRepository.OperationCallback() {
+            @Override
+            public void onSuccess() {
+                runOnUiThread(() -> Toast.makeText(PartyActivity.this, "Odustali ste od partije.", Toast.LENGTH_SHORT).show());
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> Toast.makeText(PartyActivity.this, message, Toast.LENGTH_SHORT).show());
+            }
         });
     }
 
