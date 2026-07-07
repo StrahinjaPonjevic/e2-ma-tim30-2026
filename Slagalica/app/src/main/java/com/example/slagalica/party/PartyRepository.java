@@ -1,6 +1,8 @@
 package com.example.slagalica.party;
 
 import com.example.slagalica.leagues.LeagueProgressionHelper;
+import com.example.slagalica.missions.MissionsRepository;
+import com.example.slagalica.ranking.CycleUtils;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -218,9 +220,25 @@ public class PartyRepository {
                     } else if (finalGame) {
                         clearActiveParty(transaction, ownerRef, guestRef);
                     }
-                    return null;
+                    if (!finalGame) {
+                        return null;
+                    }
+                    String finishedWinnerId = determinePartyWinnerId(party, newOwnerTotal, newGuestTotal, party.forfeitedBy);
+                    return new String[]{party.type, finishedWinnerId, party.ownerId, party.guestId};
                 })
-                .addOnSuccessListener(unused -> {
+                .addOnSuccessListener(result -> {
+                    if (result != null) {
+                        String finishedType = result[0];
+                        String finishedWinnerId = result[1];
+                        if (PartyData.TYPE_REGULAR.equals(finishedType)
+                                && finishedWinnerId != null && !"draw".equals(finishedWinnerId)) {
+                            MissionsRepository.markPartyWon(finishedWinnerId);
+                        }
+                        if (PartyData.TYPE_FRIENDLY.equals(finishedType)) {
+                            MissionsRepository.markFriendlyPlayed(result[2]);
+                            MissionsRepository.markFriendlyPlayed(result[3]);
+                        }
+                    }
                     if (callback != null) callback.onSuccess();
                 })
                 .addOnFailureListener(e -> {
@@ -721,6 +739,13 @@ public class PartyRepository {
                 : 0;
         updates.put("monthlyRankMonth", currentMonth);
         updates.put("monthlyStars", Math.max(0, currentMonthlyStars + starsDelta));
+
+        String currentWeek = CycleUtils.currentWeekKey();
+        int currentWeeklyStars = currentWeek.equals(user.getString("weeklyRankKey"))
+                ? intValue(user.get("weeklyStars"))
+                : 0;
+        updates.put("weeklyRankKey", currentWeek);
+        updates.put("weeklyStars", Math.max(0, currentWeeklyStars + starsDelta));
         return updates;
     }
 

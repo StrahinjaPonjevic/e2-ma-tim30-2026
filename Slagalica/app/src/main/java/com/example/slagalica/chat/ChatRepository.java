@@ -1,5 +1,7 @@
 package com.example.slagalica.chat;
 
+import com.example.slagalica.missions.MissionsRepository;
+
 import android.content.Context;
 
 import com.example.slagalica.notifications.NotificationChannelManager;
@@ -70,7 +72,10 @@ public class ChatRepository {
 
         messagesCollection(region)
                 .add(data)
-                .addOnSuccessListener(ref -> callback.onSuccess())
+                .addOnSuccessListener(ref -> {
+                    MissionsRepository.markChatMessage(senderId);
+                    callback.onSuccess();
+                })
                 .addOnFailureListener(e -> callback.onError(e.getMessage() != null ? e.getMessage() : "Slanje nije uspelo"));
     }
 

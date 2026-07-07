@@ -8,6 +8,11 @@ import com.example.slagalica.leagues.LeagueNotificationRepository;
 import com.example.slagalica.leagues.LeagueUiHelper;
 import com.example.slagalica.notifications.NotificationChannelManager;
 import com.example.slagalica.notifications.NotificationsActivity;
+import com.example.slagalica.missions.MissionsActivity;
+import com.example.slagalica.ranking.RankingActivity;
+import com.example.slagalica.ranking.RankingRepository;
+import com.example.slagalica.ranking.RewardActivity;
+import com.example.slagalica.tournament.TournamentActivity;
 import com.example.slagalica.party.FriendlyInviteActivity;
 import com.example.slagalica.party.FriendlyInviteRepository;
 import com.example.slagalica.profile.UserProfile;
@@ -58,6 +63,11 @@ public class MainActivity extends AppCompatActivity {
     private FirebaseManager firebaseManager;
     private UserProfileRepository profileRepository;
     private Button btnOpenNotifications;
+    private Button btnOpenRanking;
+    private Button btnOpenTournament;
+    private Button btnOpenMissions;
+    private RankingRepository rankingRepository;
+    private boolean rewardScreenShown = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -87,6 +97,10 @@ public class MainActivity extends AppCompatActivity {
         btnOpenChallenges = findViewById(R.id.btnOpenChallenges);
         btnOpenRegions = findViewById(R.id.btnOpenRegions);
         btnOpenNotifications = findViewById(R.id.btnOpenNotifications);
+        btnOpenRanking = findViewById(R.id.btnOpenRanking);
+        btnOpenTournament = findViewById(R.id.btnOpenTournament);
+        btnOpenMissions = findViewById(R.id.btnOpenMissions);
+        rankingRepository = new RankingRepository();
         tvLoggedInUser = findViewById(R.id.tvLoggedInUser);
         tvTokensStars = findViewById(R.id.tvTokensStars);
 
@@ -128,6 +142,16 @@ public class MainActivity extends AppCompatActivity {
         tvTokensStars.setText("Ucitavanje profila...");
         firebaseManager.markCurrentUserLoggedIn();
         LeagueNotificationRepository.startLeagueChangeListener(MainActivity.this, user.getUid());
+        rankingRepository.finalizePreviousCyclesIfNeeded();
+        rankingRepository.checkPendingReward(user.getUid(), rewardText -> runOnUiThread(() -> {
+            if (rewardScreenShown) {
+                return;
+            }
+            rewardScreenShown = true;
+            Intent rewardIntent = new Intent(MainActivity.this, RewardActivity.class);
+            rewardIntent.putExtra("rewardText", rewardText);
+            startActivity(rewardIntent);
+        }));
 
         profileRepository.grantDailyTokensIfNeeded(user.getUid(), new UserProfileRepository.OperationCallback() {
             @Override
@@ -148,6 +172,9 @@ public class MainActivity extends AppCompatActivity {
         btnOpenChallenges.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, ChallengeActivity.class)));
         btnOpenRegions.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, RegionMapActivity.class)));
         btnOpenNotifications.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, NotificationsActivity.class)));
+        btnOpenRanking.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, RankingActivity.class)));
+        btnOpenTournament.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, TournamentActivity.class)));
+        btnOpenMissions.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, MissionsActivity.class)));
     }
 
     private void loadProfileForMain(FirebaseUser user) {

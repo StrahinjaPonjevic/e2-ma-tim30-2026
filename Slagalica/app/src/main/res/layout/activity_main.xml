@@ -163,6 +163,33 @@
                 android:textAllCaps="false"
                 android:textSize="16sp" />
 
+            <Button
+                android:id="@+id/btnOpenRanking"
+                android:layout_width="match_parent"
+                android:layout_height="55dp"
+                android:layout_marginBottom="16dp"
+                android:text="Rang lista"
+                android:textAllCaps="false"
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/btnOpenTournament"
+                android:layout_width="match_parent"
+                android:layout_height="55dp"
+                android:layout_marginBottom="16dp"
+                android:text="Turnir"
+                android:textAllCaps="false"
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/btnOpenMissions"
+                android:layout_width="match_parent"
+                android:layout_height="55dp"
+                android:layout_marginBottom="16dp"
+                android:text="Dnevne misije"
+                android:textAllCaps="false"
+                android:textSize="16sp" />
+
         </LinearLayout>
 
     </LinearLayout>

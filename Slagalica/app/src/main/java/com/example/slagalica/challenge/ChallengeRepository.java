@@ -1,6 +1,7 @@
 package com.example.slagalica.challenge;
 
 import com.example.slagalica.leagues.LeagueProgressionHelper;
+import com.example.slagalica.ranking.CycleUtils;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -331,6 +332,12 @@ public class ChallengeRepository {
                     ? intValue(user.get("monthlyStars")) : 0;
             updates.put("monthlyRankMonth", currentMonth);
             updates.put("monthlyStars", currentMonthlyStars + wonStars);
+
+            String currentWeek = CycleUtils.currentWeekKey();
+            int currentWeeklyStars = currentWeek.equals(user.getString("weeklyRankKey"))
+                    ? intValue(user.get("weeklyStars")) : 0;
+            updates.put("weeklyRankKey", currentWeek);
+            updates.put("weeklyStars", currentWeeklyStars + wonStars);
         }
         return updates;
     }

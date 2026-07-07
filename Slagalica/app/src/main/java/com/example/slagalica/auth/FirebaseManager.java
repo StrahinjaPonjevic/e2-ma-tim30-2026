@@ -1,5 +1,7 @@
 package com.example.slagalica.auth;
 
+import com.example.slagalica.ranking.CycleUtils;
+
 import androidx.annotation.NonNull;
 
 import com.google.android.gms.tasks.OnCompleteListener;
@@ -126,6 +128,8 @@ public class FirebaseManager {
         userData.put("lastDailyTokenGrant", FieldValue.serverTimestamp());
         userData.put("monthlyRankMonth", currentMonthKey());
         userData.put("monthlyStars", 0);
+        userData.put("weeklyRankKey", CycleUtils.currentWeekKey());
+        userData.put("weeklyStars", 0);
         userData.put("isLoggedIn", false);
         userData.put("activePartyId", null);
         userData.put("matchesPlayed", 0);

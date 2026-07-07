@@ -75,6 +75,18 @@
             android:name=".regions.RegionMapActivity"
             android:exported="false" />
         <activity
+            android:name=".ranking.RankingActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ranking.RewardActivity"
+            android:exported="false" />
+        <activity
+            android:name=".tournament.TournamentActivity"
+            android:exported="false" />
+        <activity
+            android:name=".missions.MissionsActivity"
+            android:exported="false" />
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
