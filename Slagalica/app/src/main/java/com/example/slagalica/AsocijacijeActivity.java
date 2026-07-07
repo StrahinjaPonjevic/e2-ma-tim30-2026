@@ -1169,8 +1169,8 @@ public class AsocijacijeActivity extends AppCompatActivity {
         lastOwnerGameScore = ownerScore;
         lastGuestGameScore = guestScore;
         if (partyId != null) {
-            tvPlayer1Score.setText(ownerScore + " bod | Partija: " + (partyOwnerTotal + ownerScore));
-            tvPlayer2Score.setText(guestScore + " bod | Partija: " + (partyGuestTotal + guestScore));
+            tvPlayer1Score.setText(ownerScore + " bodova");
+            tvPlayer2Score.setText(guestScore + " bodova");
         } else {
             tvPlayer1Score.setText(ownerScore + " bodova");
             tvPlayer2Score.setText(syncedMode ? guestScore + " bodova" : "");

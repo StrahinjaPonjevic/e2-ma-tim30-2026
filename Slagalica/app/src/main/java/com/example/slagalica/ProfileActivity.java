@@ -49,6 +49,10 @@ public class ProfileActivity extends AppCompatActivity {
     private TextView tvSpojniceStats;
     private TextView tvMojBrojStats;
     private TextView tvKorakPoKorakStats;
+    private TextView tvAsocijacijeAverage;
+    private TextView tvSkockoAverage;
+    private TextView tvAsocijacijeStats;
+    private TextView tvSkockoStats;
     private Button btnEditAvatar;
     private Button btnLogout;
     private Button btnBackToMain;
@@ -105,6 +109,10 @@ public class ProfileActivity extends AppCompatActivity {
         tvSpojniceStats = findViewById(R.id.tvSpojniceStats);
         tvMojBrojStats = findViewById(R.id.tvMojBrojStats);
         tvKorakPoKorakStats = findViewById(R.id.tvKorakPoKorakStats);
+        tvAsocijacijeAverage = findViewById(R.id.tvAsocijacijeAverage);
+        tvSkockoAverage = findViewById(R.id.tvSkockoAverage);
+        tvAsocijacijeStats = findViewById(R.id.tvAsocijacijeStats);
+        tvSkockoStats = findViewById(R.id.tvSkockoStats);
         btnEditAvatar = findViewById(R.id.btnEditAvatar);
         btnLogout = findViewById(R.id.btnLogout);
         btnBackToMain = findViewById(R.id.btnBackToMain);
@@ -166,6 +174,8 @@ public class ProfileActivity extends AppCompatActivity {
         tvSpojniceAverage.setText(buildAverageText("Spojnice", profile.spojnice.gamesPlayed, profile.spojnice.totalScore, 20));
         tvMojBrojAverage.setText(buildAverageText("Moj broj", profile.mojBroj.gamesPlayed, profile.mojBroj.totalScore, 20));
         tvKorakPoKorakAverage.setText(buildAverageText("Korak po korak", profile.korakPoKorak.gamesPlayed, profile.korakPoKorak.totalScore, 40));
+        tvAsocijacijeAverage.setText(buildAverageText("Asocijacije", profile.asocijacije.gamesPlayed, profile.asocijacije.totalScore, 60));
+        tvSkockoAverage.setText(buildAverageText("Skocko", profile.skocko.gamesPlayed, profile.skocko.totalScore, 40));
 
         tvKoZnaZnaStats.setText(String.format(Locale.getDefault(),
                 "Ko zna zna: %d pogodjenih / %d promasenih pitanja",
@@ -191,6 +201,24 @@ public class ProfileActivity extends AppCompatActivity {
                 formatPercent(profile.korakPoKorak.step5Hits, totalKpkRounds),
                 formatPercent(profile.korakPoKorak.step6Hits, totalKpkRounds),
                 formatPercent(profile.korakPoKorak.step7Hits, totalKpkRounds)));
+
+        int solvedFinals = profile.asocijacije.exactHits;
+        int unsolvedFinals = Math.max(0, profile.asocijacije.roundsPlayed - solvedFinals);
+        tvAsocijacijeStats.setText(String.format(Locale.getDefault(),
+                "Asocijacije: %d resenih / %d neresenih (%s resenih)",
+                solvedFinals, unsolvedFinals,
+                formatPercent(solvedFinals, profile.asocijacije.roundsPlayed)));
+
+        int skockoRounds = profile.skocko.roundsPlayed;
+        tvSkockoStats.setText(String.format(Locale.getDefault(),
+                "Skocko: 1.%s  2.%s  3.%s  4.%s  5.%s  6.%s | bez pogotka: %s",
+                formatPercent(profile.skocko.step1Hits, skockoRounds),
+                formatPercent(profile.skocko.step2Hits, skockoRounds),
+                formatPercent(profile.skocko.step3Hits, skockoRounds),
+                formatPercent(profile.skocko.step4Hits, skockoRounds),
+                formatPercent(profile.skocko.step5Hits, skockoRounds),
+                formatPercent(profile.skocko.step6Hits, skockoRounds),
+                formatPercent(profile.skocko.wrongAnswers, skockoRounds)));
     }
 
     private void openAvatarPicker() {

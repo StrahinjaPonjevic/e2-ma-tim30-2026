@@ -96,6 +96,20 @@ public class UserProfileRepository {
         defaults.put("stats.korakPoKorak.step5Hits", 0);
         defaults.put("stats.korakPoKorak.step6Hits", 0);
         defaults.put("stats.korakPoKorak.step7Hits", 0);
+        defaults.put("stats.asocijacije.gamesPlayed", 0);
+        defaults.put("stats.asocijacije.totalScore", 0);
+        defaults.put("stats.asocijacije.solvedFinals", 0);
+        defaults.put("stats.asocijacije.roundsPlayed", 0);
+        defaults.put("stats.skocko.gamesPlayed", 0);
+        defaults.put("stats.skocko.totalScore", 0);
+        defaults.put("stats.skocko.roundsPlayed", 0);
+        defaults.put("stats.skocko.attempt1Hits", 0);
+        defaults.put("stats.skocko.attempt2Hits", 0);
+        defaults.put("stats.skocko.attempt3Hits", 0);
+        defaults.put("stats.skocko.attempt4Hits", 0);
+        defaults.put("stats.skocko.attempt5Hits", 0);
+        defaults.put("stats.skocko.attempt6Hits", 0);
+        defaults.put("stats.skocko.misses", 0);
 
         db.collection(USERS_COLLECTION).document(uid)
                 .update(defaults)
@@ -166,6 +180,10 @@ public class UserProfileRepository {
                 ? (Map<String, Object>) stats.get("mojBroj") : null;
         Map<String, Object> korakPoKorak = stats != null && stats.get("korakPoKorak") instanceof Map
                 ? (Map<String, Object>) stats.get("korakPoKorak") : null;
+        Map<String, Object> asocijacije = stats != null && stats.get("asocijacije") instanceof Map
+                ? (Map<String, Object>) stats.get("asocijacije") : null;
+        Map<String, Object> skocko = stats != null && stats.get("skocko") instanceof Map
+                ? (Map<String, Object>) stats.get("skocko") : null;
 
         int stars = intValue(snapshot.get("stars"));
         int leagueLevel = snapshot.contains("leagueLevel")
@@ -189,7 +207,9 @@ public class UserProfileRepository {
                 mapGameStats(koZnaZna),
                 mapGameStats(spojnice),
                 mapGameStats(mojBroj),
-                mapGameStats(korakPoKorak)
+                mapGameStats(korakPoKorak),
+                mapGameStats(asocijacije),
+                mapGameStats(skocko)
         );
     }
 
@@ -202,17 +222,17 @@ public class UserProfileRepository {
                 intValue(rawStats.get("gamesPlayed")),
                 intValue(rawStats.get("totalScore")),
                 intValue(rawStats.get("correctAnswers")),
-                intValue(rawStats.get("wrongAnswers")),
+                intValue(rawStats.get("wrongAnswers")) + intValue(rawStats.get("misses")),
                 intValue(rawStats.get("successfulLinks")),
                 intValue(rawStats.get("attemptedLinks")),
-                intValue(rawStats.get("exactHits")),
+                intValue(rawStats.get("exactHits")) + intValue(rawStats.get("solvedFinals")),
                 intValue(rawStats.get("roundsPlayed")),
-                intValue(rawStats.get("step1Hits")),
-                intValue(rawStats.get("step2Hits")),
-                intValue(rawStats.get("step3Hits")),
-                intValue(rawStats.get("step4Hits")),
-                intValue(rawStats.get("step5Hits")),
-                intValue(rawStats.get("step6Hits")),
+                intValue(rawStats.get("step1Hits")) + intValue(rawStats.get("attempt1Hits")),
+                intValue(rawStats.get("step2Hits")) + intValue(rawStats.get("attempt2Hits")),
+                intValue(rawStats.get("step3Hits")) + intValue(rawStats.get("attempt3Hits")),
+                intValue(rawStats.get("step4Hits")) + intValue(rawStats.get("attempt4Hits")),
+                intValue(rawStats.get("step5Hits")) + intValue(rawStats.get("attempt5Hits")),
+                intValue(rawStats.get("step6Hits")) + intValue(rawStats.get("attempt6Hits")),
                 intValue(rawStats.get("step7Hits"))
         );
     }

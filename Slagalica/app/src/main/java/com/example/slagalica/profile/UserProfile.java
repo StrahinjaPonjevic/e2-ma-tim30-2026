@@ -19,11 +19,14 @@ public class UserProfile {
     public final GameStats spojnice;
     public final GameStats mojBroj;
     public final GameStats korakPoKorak;
+    public final GameStats asocijacije;
+    public final GameStats skocko;
 
     public UserProfile(String uid, String username, String email, String region, int avatarTheme,
                        int avatarFrameRank, String avatarFrameCycleMonth,
                        int tokens, int stars, int leagueLevel, int matchesPlayed, int wins, int losses,
-                       GameStats koZnaZna, GameStats spojnice, GameStats mojBroj, GameStats korakPoKorak) {
+                       GameStats koZnaZna, GameStats spojnice, GameStats mojBroj, GameStats korakPoKorak,
+                       GameStats asocijacije, GameStats skocko) {
         this.uid = uid;
         this.username = username;
         this.email = email;
@@ -41,6 +44,8 @@ public class UserProfile {
         this.spojnice = spojnice;
         this.mojBroj = mojBroj;
         this.korakPoKorak = korakPoKorak;
+        this.asocijacije = asocijacije;
+        this.skocko = skocko;
     }
 
     public static class GameStats {

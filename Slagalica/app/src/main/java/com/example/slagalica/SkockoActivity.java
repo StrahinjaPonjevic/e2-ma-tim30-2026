@@ -280,8 +280,8 @@ public class SkockoActivity extends AppCompatActivity {
     private void setupInitialHeader() {
         tvPlayer1Name.setText(syncedMode ? "Igrac 1" : "Runda 1");
         tvPlayer2Name.setText(syncedMode ? "Igrac 2" : "Runda 2");
-        tvPlayer1Score.setText("0 bod");
-        tvPlayer2Score.setText("0 bod");
+        tvPlayer1Score.setText("0 bodova");
+        tvPlayer2Score.setText("0 bodova");
         tvRoundLabel.setText("Priprema igre...");
         tvTimer.setText(String.valueOf(ACTIVE_DURATION_SECONDS));
         progressTimer.setMax(ACTIVE_DURATION_SECONDS);
@@ -1128,13 +1128,8 @@ public class SkockoActivity extends AppCompatActivity {
     private void updateScoreViews(int firstScore, int secondScore) {
         lastOwnerGameScore = firstScore;
         lastGuestGameScore = secondScore;
-        if (partyId != null) {
-            tvPlayer1Score.setText(firstScore + " bod | Partija: " + (partyOwnerTotal + firstScore));
-            tvPlayer2Score.setText(secondScore + " bod | Partija: " + (partyGuestTotal + secondScore));
-        } else {
-            tvPlayer1Score.setText(firstScore + " bod");
-            tvPlayer2Score.setText(secondScore + " bod");
-        }
+        tvPlayer1Score.setText(firstScore + " bodova");
+        tvPlayer2Score.setText(secondScore + " bodova");
     }
 
     private String determineWinner(int ownerScore, int guestScore) {
