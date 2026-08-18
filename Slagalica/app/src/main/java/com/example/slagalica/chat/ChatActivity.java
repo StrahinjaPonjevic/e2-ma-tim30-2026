@@ -186,7 +186,7 @@ public class ChatActivity extends AppCompatActivity {
     private static final class MessageAdapter extends RecyclerView.Adapter<MessageViewHolder> {
         private final String currentUserId;
         private final List<ChatMessage> messages = new ArrayList<>();
-        private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
+        private final SimpleDateFormat dateTimeFormat = new SimpleDateFormat("dd.MM.yyyy. HH:mm", Locale.getDefault());
 
         MessageAdapter(String currentUserId) {
             this.currentUserId = currentUserId;
@@ -224,7 +224,7 @@ public class ChatActivity extends AppCompatActivity {
 
         private String formatTime(Timestamp timestamp) {
             Date date = timestamp != null ? timestamp.toDate() : new Date();
-            return timeFormat.format(date);
+            return dateTimeFormat.format(date);
         }
 
         private GradientDrawable makeBubble(String color) {
