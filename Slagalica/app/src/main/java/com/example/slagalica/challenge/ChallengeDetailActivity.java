@@ -240,9 +240,28 @@ public class ChallengeDetailActivity extends AppCompatActivity {
     }
 
     private String buildResultText(ChallengeData challenge) {
+        int participantCount = challenge.participants != null ? challenge.participants.size() : 1;
+        int totalStars = challenge.starsStake * participantCount;
+        int totalTokens = challenge.tokensStake * participantCount;
+        int winnerStars = (int) Math.floor(totalStars * 0.75);
+        int winnerTokens = (int) Math.floor(totalTokens * 0.75);
+
         String winnerName = challenge.participantName(challenge.winnerId);
+        int winnerScore = challenge.winnerId != null ? challenge.totalScore(challenge.winnerId) : 0;
         String secondName = challenge.secondPlaceId != null ? challenge.participantName(challenge.secondPlaceId) : "-";
-        return "Pobednik: " + winnerName + "\nDrugo mesto: " + secondName;
+        int secondScore = challenge.secondPlaceId != null ? challenge.totalScore(challenge.secondPlaceId) : 0;
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("🏆 1. mesto: ").append(winnerName)
+                .append(" (").append(winnerScore).append(" bodova)\n")
+                .append("   Nagrada (75%): +").append(winnerStars).append(" ★, +").append(winnerTokens).append(" tokena\n\n");
+
+        if (challenge.secondPlaceId != null && !challenge.secondPlaceId.equals(challenge.winnerId)) {
+            sb.append("🥈 2. mesto: ").append(secondName)
+                    .append(" (").append(secondScore).append(" bodova)\n")
+                    .append("   Povraćaj uloga: +").append(challenge.starsStake).append(" ★, +").append(challenge.tokensStake).append(" tokena\n");
+        }
+        return sb.toString().trim();
     }
 
     private String buildProgressSuffix(ChallengeData challenge, String uid) {

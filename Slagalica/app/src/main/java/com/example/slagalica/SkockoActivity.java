@@ -895,7 +895,9 @@ public class SkockoActivity extends AppCompatActivity {
         soloRoundRunning = true;
         clearBoard();
         clearPreview();
-        tvRoundLabel.setText("RUNDA " + round + "/2 — PRONADJI TACNU KOMBINACIJU");
+        tvRoundLabel.setText(challengeMode
+                ? "RUNDA 1/1 — PRONADJI TACNU KOMBINACIJU"
+                : ("RUNDA " + round + "/2 — PRONADJI TACNU KOMBINACIJU"));
         setInputEnabled(true);
         startSoloTimer();
     }
@@ -967,10 +969,10 @@ public class SkockoActivity extends AppCompatActivity {
             soloRound2Score = points;
         }
         updateScoreViews(soloRound1Score, soloRound2Score);
-        tvRoundLabel.setText("RUNDA " + soloRound + "/2 zavrsena. "
+        tvRoundLabel.setText((challengeMode ? "RUNDA 1/1 zavrsena. " : "RUNDA " + soloRound + "/2 zavrsena. ")
                 + (guessed ? "+" + points + " bodova." : "Kombinacija nije pogodjena."));
 
-        if (soloRound == 1) {
+        if (soloRound == 1 && !challengeMode) {
             tvRoundLabel.postDelayed(() -> startSoloRound(2), 1500);
         } else {
             finishSolo();

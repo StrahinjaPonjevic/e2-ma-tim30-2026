@@ -79,11 +79,12 @@ public class ChallengeActivity extends AppCompatActivity {
     }
 
     private void loadUser() {
+        String passedRegion = getIntent().getStringExtra("selectedRegion");
         firebaseManager.loadUserData(currentUser.getUid(), new FirebaseManager.UserDataCallback() {
             @Override
             public void onSuccess(String loadedUsername, String loadedRegion) {
                 username = loadedUsername;
-                region = loadedRegion;
+                region = (passedRegion != null && !passedRegion.trim().isEmpty()) ? passedRegion : loadedRegion;
                 runOnUiThread(() -> {
                     tvTitle.setText("Izazovi - " + region);
                     listenChallenges();

@@ -56,7 +56,6 @@ public class MainActivity extends AppCompatActivity {
     private Button btnOpenPlayLoggedIn;
     private Button btnOpenFriendly;
     private Button btnOpenChat;
-    private Button btnOpenChallenges;
     private Button btnOpenRegions;
     private TextView tvLoggedInUser;
     private TextView tvTokensStars;
@@ -94,7 +93,6 @@ public class MainActivity extends AppCompatActivity {
         btnOpenPlayLoggedIn = findViewById(R.id.btnOpenPlayLoggedIn);
         btnOpenFriendly = findViewById(R.id.btnOpenFriendly);
         btnOpenChat = findViewById(R.id.btnOpenChat);
-        btnOpenChallenges = findViewById(R.id.btnOpenChallenges);
         btnOpenRegions = findViewById(R.id.btnOpenRegions);
         btnOpenNotifications = findViewById(R.id.btnOpenNotifications);
         btnOpenRanking = findViewById(R.id.btnOpenRanking);
@@ -169,7 +167,6 @@ public class MainActivity extends AppCompatActivity {
         btnOpenPlayLoggedIn.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, SessionActivity.class)));
         btnOpenFriendly.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, FriendlyInviteActivity.class)));
         btnOpenChat.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, ChatActivity.class)));
-        btnOpenChallenges.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, ChallengeActivity.class)));
         btnOpenRegions.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, RegionMapActivity.class)));
         btnOpenNotifications.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, NotificationsActivity.class)));
         btnOpenRanking.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, RankingActivity.class)));

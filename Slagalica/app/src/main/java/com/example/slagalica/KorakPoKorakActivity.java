@@ -398,7 +398,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
 
             case "owner_playing":
                 currentRound = 1;
-                tvRoundLabel.setText("RUNDA 1/2 — KORAK PO KORAK");
+                tvRoundLabel.setText(challengeMode ? "RUNDA 1/1 — KORAK PO KORAK" : "RUNDA 1/2 — KORAK PO KORAK");
                 if (ownerIsMe) {
                     tvTurnInfo.setText("Tvoj red! Pogodi pojam.");
                     enableAnswerInput(true);
@@ -446,11 +446,19 @@ public class KorakPoKorakActivity extends AppCompatActivity {
                 break;
 
             case "guest_steal_done":
-                startRound2();
+                if (challengeMode) {
+                    determineWinner();
+                } else {
+                    startRound2();
+                }
                 break;
 
             case "round1_done":
-                startRound2();
+                if (challengeMode) {
+                    determineWinner();
+                } else {
+                    startRound2();
+                }
                 break;
 
             case "round2_done":

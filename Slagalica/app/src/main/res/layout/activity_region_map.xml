@@ -110,6 +110,16 @@
                 android:text="Ukupno registrovanih igrača: 0"
                 android:textColor="#444444"
                 android:textSize="15sp" />
+
+            <Button
+                android:id="@+id/btnSendRegionChallenge"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="14dp"
+                android:text="⚡ Pošalji izazov za ovaj region"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#FF6F00"
+                android:textAllCaps="false" />
         </LinearLayout>
 
         <TextView

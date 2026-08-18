@@ -912,7 +912,9 @@ public class AsocijacijeActivity extends AppCompatActivity {
         soloRoundRunning = true;
 
         renderColumns(soloActiveSet(), new ArrayList<>(soloOpened), soloSolved, null, false);
-        tvRoundLabel.setText("RUNDA " + round + "/2 — otvaraj polja i pogadjaj");
+        tvRoundLabel.setText(challengeMode
+                ? "RUNDA 1/1 — otvaraj polja i pogadjaj"
+                : ("RUNDA " + round + "/2 — otvaraj polja i pogadjaj"));
         updateScoreViews(soloScore, 0);
         setInputEnabled(true, true, false);
         startSoloTimer();
@@ -981,7 +983,7 @@ public class AsocijacijeActivity extends AppCompatActivity {
                 soloSolved.put(colKey, "owner");
                 renderColumns(set, new ArrayList<>(soloOpened), soloSolved, null, false);
                 updateScoreViews(soloScore, 0);
-                tvRoundLabel.setText("RUNDA " + soloRound + "/2 — Kolona " + column + " resena! +" + points);
+                tvRoundLabel.setText((challengeMode ? "RUNDA 1/1" : "RUNDA " + soloRound + "/2") + " — Kolona " + column + " resena! +" + points);
                 return;
             }
         }
@@ -1027,9 +1029,9 @@ public class AsocijacijeActivity extends AppCompatActivity {
         setInputEnabled(false, false, false);
         renderColumns(soloActiveSet(), new ArrayList<>(soloOpened), soloSolved,
                 soloFinalSolved ? "owner" : null, true);
-        tvRoundLabel.setText("RUNDA " + soloRound + "/2 zavrsena. " + message);
+        tvRoundLabel.setText((challengeMode ? "RUNDA 1/1 zavrsena. " : "RUNDA " + soloRound + "/2 zavrsena. ") + message);
 
-        if (soloRound == 1) {
+        if (soloRound == 1 && !challengeMode) {
             tvRoundLabel.postDelayed(() -> startSoloRound(2), 2500);
         } else {
             finishSolo();

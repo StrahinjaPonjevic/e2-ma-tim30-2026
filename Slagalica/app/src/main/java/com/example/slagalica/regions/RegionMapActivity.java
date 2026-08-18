@@ -36,6 +36,7 @@ public class RegionMapActivity extends AppCompatActivity {
     private RegionLeaderboardAdapter leaderboardAdapter;
     private RegionRepository repository;
     private RegionRepository.DashboardData dashboardData;
+    private RegionSummary currentlySelectedSummary;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,6 +55,14 @@ public class RegionMapActivity extends AppCompatActivity {
 
         Button btnBack = findViewById(R.id.btnRegionBack);
         btnBack.setOnClickListener(view -> finish());
+        Button btnSendChallenge = findViewById(R.id.btnSendRegionChallenge);
+        btnSendChallenge.setOnClickListener(view -> {
+            android.content.Intent intent = new android.content.Intent(RegionMapActivity.this, com.example.slagalica.challenge.ChallengeActivity.class);
+            if (currentlySelectedSummary != null && currentlySelectedSummary.region != null) {
+                intent.putExtra("selectedRegion", currentlySelectedSummary.region.displayName);
+            }
+            startActivity(intent);
+        });
         regionMapView.setOnRegionClickListener(region -> {
             if (dashboardData != null) {
                 renderRegionStats(dashboardData.summaryFor(region.id));
@@ -123,6 +132,7 @@ public class RegionMapActivity extends AppCompatActivity {
     }
 
     private void renderRegionStats(RegionSummary summary) {
+        currentlySelectedSummary = summary;
         if (summary == null) {
             tvRegionStatsTitle.setText("Statistika regiona nije dostupna");
             return;
