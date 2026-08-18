@@ -73,6 +73,45 @@ public class ProfileStatsUpdater {
         batch.commit();
     }
 
+    public void recordAsocijacije(String ownerId, String guestId, int ownerScore, int guestScore, String winner,
+                                  int ownerSolvedFinals, int guestSolvedFinals, int roundsPerPlayer) {
+        WriteBatch batch = db.batch();
+        batch.update(db.collection(USERS_COLLECTION).document(ownerId), buildMatchUpdate(
+                ownerScore, winner, "owner", "stats.asocijacije.gamesPlayed", "stats.asocijacije.totalScore",
+                "stats.asocijacije.solvedFinals", ownerSolvedFinals, "stats.asocijacije.roundsPlayed", roundsPerPlayer,
+                null, 0, null, 0
+        ));
+        batch.update(db.collection(USERS_COLLECTION).document(guestId), buildMatchUpdate(
+                guestScore, winner, "guest", "stats.asocijacije.gamesPlayed", "stats.asocijacije.totalScore",
+                "stats.asocijacije.solvedFinals", guestSolvedFinals, "stats.asocijacije.roundsPlayed", roundsPerPlayer,
+                null, 0, null, 0
+        ));
+        batch.commit();
+    }
+
+    public void recordSkocko(String ownerId, String guestId, int ownerScore, int guestScore, String winner,
+                             int ownerHitAttempt, int guestHitAttempt) {
+        WriteBatch batch = db.batch();
+        batch.update(db.collection(USERS_COLLECTION).document(ownerId),
+                buildSkockoUpdate(ownerScore, winner, "owner", ownerHitAttempt));
+        batch.update(db.collection(USERS_COLLECTION).document(guestId),
+                buildSkockoUpdate(guestScore, winner, "guest", guestHitAttempt));
+        batch.commit();
+    }
+
+    private Map<String, Object> buildSkockoUpdate(int score, String winner, String side, int hitAttempt) {
+        Map<String, Object> updates = buildBaseMatchUpdate(score, winner, side);
+        updates.put("stats.skocko.gamesPlayed", FieldValue.increment(1));
+        updates.put("stats.skocko.totalScore", FieldValue.increment(score));
+        updates.put("stats.skocko.roundsPlayed", FieldValue.increment(1));
+        if (hitAttempt >= 1 && hitAttempt <= 6) {
+            updates.put("stats.skocko.attempt" + hitAttempt + "Hits", FieldValue.increment(1));
+        } else {
+            updates.put("stats.skocko.misses", FieldValue.increment(1));
+        }
+        return updates;
+    }
+
     private Map<String, Object> buildKorakUpdate(int score, String winner, String side, int[] stepHits) {
         Map<String, Object> updates = buildBaseMatchUpdate(score, winner, side);
         updates.put("stats.korakPoKorak.gamesPlayed", FieldValue.increment(1));

@@ -2,6 +2,7 @@ package com.example.slagalica.profile;
 
 import androidx.annotation.NonNull;
 
+import com.example.slagalica.leagues.LeagueProgressionHelper;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.Timestamp;
@@ -83,8 +84,13 @@ public class UserProfileRepository {
     public void ensureProfileDefaults(String uid, OperationCallback callback) {
         Map<String, Object> defaults = new HashMap<>();
         defaults.put("avatarTheme", 0);
+        defaults.put("avatarFrameRank", 0);
+        defaults.put("avatarFrameCycleMonth", "");
         defaults.put("tokens", 5);
         defaults.put("stars", 0);
+        defaults.put("leagueLevel", 0);
+        defaults.put("lastLeagueChangeDirection", "");
+        defaults.put("lastLeagueNotificationId", "");
         defaults.put("starTokenProgress", 0);
         defaults.put("lastDailyTokenGrant", null);
         defaults.put("matchesPlayed", 0);
@@ -111,6 +117,20 @@ public class UserProfileRepository {
         defaults.put("stats.korakPoKorak.step5Hits", 0);
         defaults.put("stats.korakPoKorak.step6Hits", 0);
         defaults.put("stats.korakPoKorak.step7Hits", 0);
+        defaults.put("stats.asocijacije.gamesPlayed", 0);
+        defaults.put("stats.asocijacije.totalScore", 0);
+        defaults.put("stats.asocijacije.solvedFinals", 0);
+        defaults.put("stats.asocijacije.roundsPlayed", 0);
+        defaults.put("stats.skocko.gamesPlayed", 0);
+        defaults.put("stats.skocko.totalScore", 0);
+        defaults.put("stats.skocko.roundsPlayed", 0);
+        defaults.put("stats.skocko.attempt1Hits", 0);
+        defaults.put("stats.skocko.attempt2Hits", 0);
+        defaults.put("stats.skocko.attempt3Hits", 0);
+        defaults.put("stats.skocko.attempt4Hits", 0);
+        defaults.put("stats.skocko.attempt5Hits", 0);
+        defaults.put("stats.skocko.attempt6Hits", 0);
+        defaults.put("stats.skocko.misses", 0);
 
         db.collection(USERS_COLLECTION).document(uid)
                 .update(defaults)
@@ -136,8 +156,12 @@ public class UserProfileRepository {
                         return false;
                     }
 
+                    int stars = intValue(snapshot.get("stars"));
+                    int leagueLevel = LeagueProgressionHelper.resolveLeagueLevel(stars);
+                    int dailyTokens = LeagueProgressionHelper.dailyTokenGrant(stars);
                     Map<String, Object> updates = new HashMap<>();
-                    updates.put("tokens", FieldValue.increment(5));
+                    updates.put("tokens", FieldValue.increment(dailyTokens));
+                    updates.put("leagueLevel", leagueLevel);
                     updates.put("lastDailyTokenGrant", FieldValue.serverTimestamp());
                     transaction.update(userRef, updates);
                     return true;
@@ -177,6 +201,15 @@ public class UserProfileRepository {
                 ? (Map<String, Object>) stats.get("mojBroj") : null;
         Map<String, Object> korakPoKorak = stats != null && stats.get("korakPoKorak") instanceof Map
                 ? (Map<String, Object>) stats.get("korakPoKorak") : null;
+        Map<String, Object> asocijacije = stats != null && stats.get("asocijacije") instanceof Map
+                ? (Map<String, Object>) stats.get("asocijacije") : null;
+        Map<String, Object> skocko = stats != null && stats.get("skocko") instanceof Map
+                ? (Map<String, Object>) stats.get("skocko") : null;
+
+        int stars = intValue(snapshot.get("stars"));
+        int leagueLevel = snapshot.contains("leagueLevel")
+                ? intValue(snapshot.get("leagueLevel"))
+                : LeagueProgressionHelper.resolveLeagueLevel(stars);
 
         return new UserProfile(
                 snapshot.getId(),
@@ -184,8 +217,11 @@ public class UserProfileRepository {
                 valueOrDefault(snapshot.getString("email"), ""),
                 valueOrDefault(snapshot.getString("region"), "Nepoznat region"),
                 intValue(snapshot.get("avatarTheme")),
+                intValue(snapshot.get("avatarFrameRank")),
+                valueOrDefault(snapshot.getString("avatarFrameCycleMonth"), ""),
                 snapshot.get("tokens") != null ? intValue(snapshot.get("tokens")) : 5,
-                intValue(snapshot.get("stars")),
+                stars,
+                leagueLevel,
                 intValue(snapshot.get("matchesPlayed")),
                 intValue(snapshot.get("wins")),
                 intValue(snapshot.get("losses")),
@@ -193,7 +229,9 @@ public class UserProfileRepository {
                 mapGameStats(koZnaZna),
                 mapGameStats(spojnice),
                 mapGameStats(mojBroj),
-                mapGameStats(korakPoKorak)
+                mapGameStats(korakPoKorak),
+                mapGameStats(asocijacije),
+                mapGameStats(skocko)
         );
     }
 
@@ -206,17 +244,17 @@ public class UserProfileRepository {
                 intValue(rawStats.get("gamesPlayed")),
                 intValue(rawStats.get("totalScore")),
                 intValue(rawStats.get("correctAnswers")),
-                intValue(rawStats.get("wrongAnswers")),
+                intValue(rawStats.get("wrongAnswers")) + intValue(rawStats.get("misses")),
                 intValue(rawStats.get("successfulLinks")),
                 intValue(rawStats.get("attemptedLinks")),
-                intValue(rawStats.get("exactHits")),
+                intValue(rawStats.get("exactHits")) + intValue(rawStats.get("solvedFinals")),
                 intValue(rawStats.get("roundsPlayed")),
-                intValue(rawStats.get("step1Hits")),
-                intValue(rawStats.get("step2Hits")),
-                intValue(rawStats.get("step3Hits")),
-                intValue(rawStats.get("step4Hits")),
-                intValue(rawStats.get("step5Hits")),
-                intValue(rawStats.get("step6Hits")),
+                intValue(rawStats.get("step1Hits")) + intValue(rawStats.get("attempt1Hits")),
+                intValue(rawStats.get("step2Hits")) + intValue(rawStats.get("attempt2Hits")),
+                intValue(rawStats.get("step3Hits")) + intValue(rawStats.get("attempt3Hits")),
+                intValue(rawStats.get("step4Hits")) + intValue(rawStats.get("attempt4Hits")),
+                intValue(rawStats.get("step5Hits")) + intValue(rawStats.get("attempt5Hits")),
+                intValue(rawStats.get("step6Hits")) + intValue(rawStats.get("attempt6Hits")),
                 intValue(rawStats.get("step7Hits"))
         );
     }

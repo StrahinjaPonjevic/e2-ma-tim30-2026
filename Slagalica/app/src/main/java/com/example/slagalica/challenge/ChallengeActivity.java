@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.slagalica.R;
 import com.example.slagalica.auth.FirebaseManager;
+import com.example.slagalica.leagues.LeagueNotificationRepository;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.ListenerRegistration;
 
@@ -155,6 +156,18 @@ public class ChallengeActivity extends AppCompatActivity {
         Intent intent = new Intent(this, ChallengeDetailActivity.class);
         intent.putExtra("challengeId", challengeId);
         startActivity(intent);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        LeagueNotificationRepository.setCurrentActivity(this);
+    }
+
+    @Override
+    protected void onPause() {
+        LeagueNotificationRepository.clearCurrentActivity(this);
+        super.onPause();
     }
 
     @Override

@@ -127,7 +127,8 @@ public class KorakPoKorakActivity extends AppCompatActivity {
                 .addOnSuccessListener(snapshot -> {
                     if (snapshot.exists()) {
                         ownerId = snapshot.getString("ownerId");
-                        guestId = snapshot.getString("guestId");                        if (currentUserId != null) {
+                        guestId = snapshot.getString("guestId");
+                        if (currentUserId != null) {
                             isOwner = currentUserId.equals(ownerId);
                             canControlGameFlow = isOwner || getIntent().getBooleanExtra("isOwner", false);
                         }

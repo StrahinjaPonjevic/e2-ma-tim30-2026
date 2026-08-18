@@ -1,5 +1,7 @@
 package com.example.slagalica.challenge;
 
+import com.example.slagalica.leagues.LeagueProgressionHelper;
+import com.example.slagalica.ranking.CycleUtils;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -9,9 +11,11 @@ import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.Query;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class ChallengeRepository {
@@ -90,6 +94,8 @@ public class ChallengeRepository {
         db.runTransaction(transaction -> {
                     DocumentSnapshot user = transaction.get(userRef);
                     ensureFunds(user, starsStake, tokensStake);
+                    int oldStars = intValue(user.get("stars"));
+                    int newStars = Math.max(0, oldStars - starsStake);
 
                     Map<String, Object> participants = new HashMap<>();
                     participants.put(creatorId, creatorUsername);
@@ -111,8 +117,10 @@ public class ChallengeRepository {
                     challenge.put("createdAt", FieldValue.serverTimestamp());
                     challenge.put("updatedAt", FieldValue.serverTimestamp());
 
-                    transaction.update(userRef, "stars", FieldValue.increment(-starsStake),
-                            "tokens", FieldValue.increment(-tokensStake));
+                    Map<String, Object> userUpdates = LeagueProgressionHelper
+                            .buildStarsAndLeagueUpdate(oldStars, newStars);
+                    userUpdates.put("tokens", FieldValue.increment(-tokensStake));
+                    transaction.update(userRef, userUpdates);
                     transaction.set(challengeRef, challenge);
                     return challengeRef.getId();
                 })
@@ -141,9 +149,12 @@ public class ChallengeRepository {
 
                     DocumentSnapshot user = transaction.get(userRef);
                     ensureFunds(user, challenge.starsStake, challenge.tokensStake);
-                    transaction.update(userRef,
-                            "stars", FieldValue.increment(-challenge.starsStake),
-                            "tokens", FieldValue.increment(-challenge.tokensStake));
+                    int oldStars = intValue(user.get("stars"));
+                    int newStars = Math.max(0, oldStars - challenge.starsStake);
+                    Map<String, Object> userUpdates = LeagueProgressionHelper
+                            .buildStarsAndLeagueUpdate(oldStars, newStars);
+                    userUpdates.put("tokens", FieldValue.increment(-challenge.tokensStake));
+                    transaction.update(userRef, userUpdates);
                     transaction.update(challengeRef,
                             "participants." + uid, username,
                             "runs." + uid, defaultRunMap(),
@@ -281,7 +292,7 @@ public class ChallengeRepository {
 
     private void applyPayouts(com.google.firebase.firestore.Transaction transaction,
                               ChallengeData challenge,
-                              Winners winners) {
+                              Winners winners) throws FirebaseFirestoreException {
         int participantCount = challenge.participants.size();
         int totalStars = challenge.starsStake * participantCount;
         int totalTokens = challenge.tokensStake * participantCount;
@@ -289,16 +300,52 @@ public class ChallengeRepository {
         int winnerTokens = (int) Math.floor(totalTokens * 0.75);
 
         DocumentReference winnerRef = db.collection(USERS).document(winners.winnerId);
-        transaction.update(winnerRef,
-                "stars", FieldValue.increment(winnerStars),
-                "tokens", FieldValue.increment(winnerTokens));
-
+        DocumentSnapshot winnerSnapshot = transaction.get(winnerRef);
+        DocumentReference secondRef = null;
+        DocumentSnapshot secondSnapshot = null;
         if (winners.secondPlaceId != null && !winners.secondPlaceId.equals(winners.winnerId)) {
-            DocumentReference secondRef = db.collection(USERS).document(winners.secondPlaceId);
-            transaction.update(secondRef,
-                    "stars", FieldValue.increment(challenge.starsStake),
-                    "tokens", FieldValue.increment(challenge.tokensStake));
+            secondRef = db.collection(USERS).document(winners.secondPlaceId);
+            secondSnapshot = transaction.get(secondRef);
         }
+
+        Map<String, Object> winnerUpdates = payoutUpdates(
+                winnerSnapshot, winnerStars, winnerTokens);
+        transaction.update(winnerRef, winnerUpdates);
+
+        if (secondRef != null && secondSnapshot != null) {
+            Map<String, Object> secondUpdates = payoutUpdates(
+                    secondSnapshot, challenge.starsStake, challenge.tokensStake);
+            transaction.update(secondRef, secondUpdates);
+        }
+    }
+
+    private Map<String, Object> payoutUpdates(DocumentSnapshot user, int wonStars, int wonTokens) {
+        int oldStars = intValue(user.get("stars"));
+        int newStars = Math.max(0, oldStars + wonStars);
+        Map<String, Object> updates = LeagueProgressionHelper.buildStarsAndLeagueUpdate(
+                oldStars, newStars);
+        updates.put("tokens", FieldValue.increment(wonTokens));
+
+        if (wonStars > 0) {
+            String currentMonth = currentMonthKey();
+            int currentMonthlyStars = currentMonth.equals(user.getString("monthlyRankMonth"))
+                    ? intValue(user.get("monthlyStars")) : 0;
+            updates.put("monthlyRankMonth", currentMonth);
+            updates.put("monthlyStars", currentMonthlyStars + wonStars);
+
+            String currentWeek = CycleUtils.currentWeekKey();
+            int currentWeeklyStars = currentWeek.equals(user.getString("weeklyRankKey"))
+                    ? intValue(user.get("weeklyStars")) : 0;
+            updates.put("weeklyRankKey", currentWeek);
+            updates.put("weeklyStars", currentWeeklyStars + wonStars);
+        }
+        return updates;
+    }
+
+    private String currentMonthKey() {
+        Calendar calendar = Calendar.getInstance();
+        return String.format(Locale.US, "%04d-%02d",
+                calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH) + 1);
     }
 
     private Winners resolveWinners(Map<String, Object> scores) {

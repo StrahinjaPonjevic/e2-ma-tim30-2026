@@ -47,6 +47,9 @@
             android:name=".SkockoActivity"
             android:exported="false" />
         <activity
+            android:name=".notifications.NotificationsActivity"
+            android:exported="false" />
+        <activity
             android:name=".GameSelectionActivity"
             android:exported="false" />
         <activity
@@ -69,6 +72,21 @@
             android:exported="false" />
         <activity
             android:name=".challenge.ChallengeDetailActivity"
+            android:exported="false" />
+        <activity
+            android:name=".regions.RegionMapActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ranking.RankingActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ranking.RewardActivity"
+            android:exported="false" />
+        <activity
+            android:name=".tournament.TournamentActivity"
+            android:exported="false" />
+        <activity
+            android:name=".missions.MissionsActivity"
             android:exported="false" />
         <activity
             android:name=".MainActivity"

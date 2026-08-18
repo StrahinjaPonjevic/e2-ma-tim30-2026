@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F5F5F5"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Rang lista"
+        android:textColor="#1E1E1E"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:paddingBottom="12dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="10dp">
+
+        <Button
+            android:id="@+id/btnWeekly"
+            android:layout_width="0dp"
+            android:layout_height="45dp"
+            android:layout_weight="1"
+            android:text="Nedeljna"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            android:layout_marginEnd="6dp" />
+
+        <Button
+            android:id="@+id/btnMonthly"
+            android:layout_width="0dp"
+            android:layout_height="45dp"
+            android:layout_weight="1"
+            android:text="Mesecna"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvCycleRange"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Ciklus:"
+        android:textColor="#333333"
+        android:textSize="15sp"
+        android:gravity="center"
+        android:paddingBottom="4dp" />
+
+    <TextView
+        android:id="@+id/tvLastRefresh"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Lista se automatski osvezava na 2 minuta"
+        android:textColor="#777777"
+        android:textSize="12sp"
+        android:gravity="center"
+        android:paddingBottom="8dp" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvRanking"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <TextView
+        android:id="@+id/tvRankingEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Niko jos nije odigrao partiju u ovom ciklusu."
+        android:textColor="#666666"
+        android:textSize="15sp"
+        android:gravity="center"
+        android:paddingVertical="24dp"
+        android:visibility="gone" />
+
+    <Button
+        android:id="@+id/btnRankingBack"
+        android:layout_width="match_parent"
+        android:layout_height="55dp"
+        android:layout_marginTop="10dp"
+        android:text="Nazad"
+        android:textAllCaps="false"
+        android:textSize="16sp" />
+
+</LinearLayout>

@@ -273,6 +273,24 @@
                 android:layout_height="wrap_content"
                 android:text="Korak po korak: nema podataka"
                 android:textSize="16sp"
+                android:textColor="#333333"
+                android:layout_marginBottom="6dp" />
+
+            <TextView
+                android:id="@+id/tvAsocijacijeAverage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Asocijacije: nema podataka"
+                android:textSize="16sp"
+                android:textColor="#333333"
+                android:layout_marginBottom="6dp" />
+
+            <TextView
+                android:id="@+id/tvSkockoAverage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Skocko: nema podataka"
+                android:textSize="16sp"
                 android:textColor="#333333" />
         </LinearLayout>
 
@@ -324,6 +342,24 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Korak po korak: nema podataka"
+                android:textSize="16sp"
+                android:textColor="#333333"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/tvAsocijacijeStats"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Asocijacije: nema podataka"
+                android:textSize="16sp"
+                android:textColor="#333333"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/tvSkockoStats"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Skocko: nema podataka"
                 android:textSize="16sp"
                 android:textColor="#333333" />
         </LinearLayout>

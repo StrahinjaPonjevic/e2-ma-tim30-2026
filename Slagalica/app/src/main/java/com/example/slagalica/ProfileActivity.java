@@ -2,7 +2,6 @@ package com.example.slagalica;
 
 import android.content.Intent;
 import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
@@ -13,8 +12,11 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.auth.FirebaseManager;
+import com.example.slagalica.leagues.LeagueNotificationRepository;
+import com.example.slagalica.leagues.LeagueUiHelper;
 import com.example.slagalica.profile.UserProfile;
 import com.example.slagalica.profile.UserProfileRepository;
+import com.example.slagalica.regions.RegionAvatarFrameHelper;
 import com.google.firebase.auth.FirebaseUser;
 
 import java.util.Locale;
@@ -48,6 +50,10 @@ public class ProfileActivity extends AppCompatActivity {
     private TextView tvSpojniceStats;
     private TextView tvMojBrojStats;
     private TextView tvKorakPoKorakStats;
+    private TextView tvAsocijacijeAverage;
+    private TextView tvSkockoAverage;
+    private TextView tvAsocijacijeStats;
+    private TextView tvSkockoStats;
     private Button btnEditAvatar, btnLogout, btnBackToMain, btnAbandonParty;
 
     private FirebaseManager firebaseManager;
@@ -102,6 +108,10 @@ public class ProfileActivity extends AppCompatActivity {
         tvSpojniceStats = findViewById(R.id.tvSpojniceStats);
         tvMojBrojStats = findViewById(R.id.tvMojBrojStats);
         tvKorakPoKorakStats = findViewById(R.id.tvKorakPoKorakStats);
+        tvAsocijacijeAverage = findViewById(R.id.tvAsocijacijeAverage);
+        tvSkockoAverage = findViewById(R.id.tvSkockoAverage);
+        tvAsocijacijeStats = findViewById(R.id.tvAsocijacijeStats);
+        tvSkockoStats = findViewById(R.id.tvSkockoStats);
         btnEditAvatar = findViewById(R.id.btnEditAvatar);
         btnLogout = findViewById(R.id.btnLogout);
         btnBackToMain = findViewById(R.id.btnBackToMain);
@@ -173,17 +183,19 @@ public class ProfileActivity extends AppCompatActivity {
         tvRegion.setText("Region: " + profile.region);
         tvTokens.setText(String.valueOf(profile.tokens));
         tvStars.setText(String.valueOf(profile.stars));
-        tvLeague.setText(resolveLeague(profile.stars));
+        tvLeague.setText(LeagueUiHelper.profileSummaryForStars(profile.stars));
         tvTotalMatches.setText("Ukupno partija: " + profile.matchesPlayed);
         tvWinLose.setText(String.format(Locale.getDefault(), "Pobede: %d | Porazi: %d", profile.wins, profile.losses));
 
         tvAvatarInitials.setText(extractInitials(profile.username));
-        applyAvatarTheme(profile.avatarTheme);
+        applyAvatarTheme(profile.avatarTheme, profile.avatarFrameRank, profile.avatarFrameCycleMonth);
 
         tvKoZnaZnaAverage.setText(buildAverageText("Ko zna zna", profile.koZnaZna.gamesPlayed, profile.koZnaZna.totalScore, 50));
         tvSpojniceAverage.setText(buildAverageText("Spojnice", profile.spojnice.gamesPlayed, profile.spojnice.totalScore, 20));
         tvMojBrojAverage.setText(buildAverageText("Moj broj", profile.mojBroj.gamesPlayed, profile.mojBroj.totalScore, 20));
         tvKorakPoKorakAverage.setText(buildAverageText("Korak po korak", profile.korakPoKorak.gamesPlayed, profile.korakPoKorak.totalScore, 40));
+        tvAsocijacijeAverage.setText(buildAverageText("Asocijacije", profile.asocijacije.gamesPlayed, profile.asocijacije.totalScore, 60));
+        tvSkockoAverage.setText(buildAverageText("Skocko", profile.skocko.gamesPlayed, profile.skocko.totalScore, 40));
 
         tvKoZnaZnaStats.setText(String.format(Locale.getDefault(),
                 "Ko zna zna: %d pogodjenih / %d promasenih pitanja",
@@ -209,6 +221,24 @@ public class ProfileActivity extends AppCompatActivity {
                 formatPercent(profile.korakPoKorak.step5Hits, totalKpkRounds),
                 formatPercent(profile.korakPoKorak.step6Hits, totalKpkRounds),
                 formatPercent(profile.korakPoKorak.step7Hits, totalKpkRounds)));
+
+        int solvedFinals = profile.asocijacije.exactHits;
+        int unsolvedFinals = Math.max(0, profile.asocijacije.roundsPlayed - solvedFinals);
+        tvAsocijacijeStats.setText(String.format(Locale.getDefault(),
+                "Asocijacije: %d resenih / %d neresenih (%s resenih)",
+                solvedFinals, unsolvedFinals,
+                formatPercent(solvedFinals, profile.asocijacije.roundsPlayed)));
+
+        int skockoRounds = profile.skocko.roundsPlayed;
+        tvSkockoStats.setText(String.format(Locale.getDefault(),
+                "Skocko: 1.%s  2.%s  3.%s  4.%s  5.%s  6.%s | bez pogotka: %s",
+                formatPercent(profile.skocko.step1Hits, skockoRounds),
+                formatPercent(profile.skocko.step2Hits, skockoRounds),
+                formatPercent(profile.skocko.step3Hits, skockoRounds),
+                formatPercent(profile.skocko.step4Hits, skockoRounds),
+                formatPercent(profile.skocko.step5Hits, skockoRounds),
+                formatPercent(profile.skocko.step6Hits, skockoRounds),
+                formatPercent(profile.skocko.wrongAnswers, skockoRounds)));
 
         if (profile.activePartyId != null && !profile.activePartyId.trim().isEmpty()) {
             btnAbandonParty.setVisibility(View.VISIBLE);
@@ -237,13 +267,10 @@ public class ProfileActivity extends AppCompatActivity {
                 .show();
     }
 
-    private void applyAvatarTheme(int avatarTheme) {
+    private void applyAvatarTheme(int avatarTheme, int avatarFrameRank, String avatarFrameCycleMonth) {
         int safeIndex = Math.max(0, Math.min(avatarTheme, AVATAR_COLORS.length - 1));
-        if (tvAvatarInitials.getBackground() instanceof GradientDrawable) {
-            GradientDrawable drawable = (GradientDrawable) tvAvatarInitials.getBackground().mutate();
-            drawable.setColor(AVATAR_COLORS[safeIndex]);
-            drawable.setStroke(3, Color.rgb(255, 248, 239));
-        }
+        RegionAvatarFrameHelper.apply(tvAvatarInitials, AVATAR_COLORS[safeIndex],
+                avatarFrameRank, avatarFrameCycleMonth);
     }
 
     private String buildAverageText(String label, int gamesPlayed, int totalScore, int maxScore) {
@@ -263,14 +290,16 @@ public class ProfileActivity extends AppCompatActivity {
         return percent + "%";
     }
 
-    private String resolveLeague(int stars) {
-        if (stars >= 200) {
-            return "Zlatna liga";
-        }
-        if (stars >= 100) {
-            return "Srebrna liga";
-        }
-        return "Bronzana liga";
+    @Override
+    protected void onResume() {
+        super.onResume();
+        LeagueNotificationRepository.setCurrentActivity(this);
+    }
+
+    @Override
+    protected void onPause() {
+        LeagueNotificationRepository.clearCurrentActivity(this);
+        super.onPause();
     }
 
     private String extractInitials(String username) {

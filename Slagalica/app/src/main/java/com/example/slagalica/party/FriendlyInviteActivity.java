@@ -3,7 +3,6 @@ package com.example.slagalica.party;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -25,6 +24,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.slagalica.R;
 import com.example.slagalica.auth.FirebaseManager;
+import com.example.slagalica.regions.RegionAvatarFrameHelper;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.ListenerRegistration;
 import com.google.zxing.BarcodeFormat;
@@ -679,7 +679,8 @@ public class FriendlyInviteActivity extends AppCompatActivity {
         public void onBindViewHolder(@NonNull FriendViewHolder holder, int position) {
             FriendsRepository.FriendSummary friend = friends.get(position);
             holder.tvAvatar.setText(extractInitials(friend.username));
-            applyAvatarTheme(holder.tvAvatar, friend.avatarTheme);
+            applyAvatarTheme(holder.tvAvatar, friend.avatarTheme,
+                    friend.avatarFrameRank, friend.avatarFrameCycleMonth);
             holder.tvUsername.setText(friend.username);
             holder.tvStats.setText(String.format(Locale.getDefault(),
                     "Rang: %s | Zvezde: %d | %s",
@@ -755,12 +756,11 @@ public class FriendlyInviteActivity extends AppCompatActivity {
         return "Dostupan";
     }
 
-    private void applyAvatarTheme(TextView avatarView, int avatarTheme) {
+    private void applyAvatarTheme(TextView avatarView, int avatarTheme,
+                                  int avatarFrameRank, String avatarFrameCycleMonth) {
         int safeIndex = Math.max(0, Math.min(avatarTheme, AVATAR_COLORS.length - 1));
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setShape(GradientDrawable.OVAL);
-        drawable.setColor(AVATAR_COLORS[safeIndex]);
-        avatarView.setBackground(drawable);
+        RegionAvatarFrameHelper.apply(avatarView, AVATAR_COLORS[safeIndex],
+                avatarFrameRank, avatarFrameCycleMonth);
     }
 
     private String extractInitials(String username) {

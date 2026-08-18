@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#4527A0"
+    android:gravity="center"
+    android:padding="24dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <TextView
+            android:id="@+id/tvStarsLeft"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⭐⭐"
+            android:textSize="34sp" />
+
+        <TextView
+            android:id="@+id/tvTrophy"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🏆"
+            android:textSize="96sp"
+            android:layout_marginHorizontal="12dp" />
+
+        <TextView
+            android:id="@+id/tvStarsRight"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⭐⭐"
+            android:textSize="34sp" />
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Cestitamo!"
+        android:textColor="#FFFFFF"
+        android:textSize="30sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginTop="18dp" />
+
+    <TextView
+        android:id="@+id/tvRewardText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="#EDE7F6"
+        android:textSize="18sp"
+        android:gravity="center"
+        android:layout_marginTop="12dp" />
+
+    <Button
+        android:id="@+id/btnClaimReward"
+        android:layout_width="match_parent"
+        android:layout_height="55dp"
+        android:layout_marginTop="32dp"
+        android:text="Preuzmi nagradu"
+        android:textAllCaps="false"
+        android:textSize="16sp" />
+
+</LinearLayout>

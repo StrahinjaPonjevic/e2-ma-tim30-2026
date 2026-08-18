@@ -7,8 +7,11 @@ public class UserProfile {
     public final String email;
     public final String region;
     public final int avatarTheme;
+    public final int avatarFrameRank;
+    public final String avatarFrameCycleMonth;
     public final int tokens;
     public final int stars;
+    public final int leagueLevel;
     public final int matchesPlayed;
     public final int wins;
     public final int losses;
@@ -17,17 +20,25 @@ public class UserProfile {
     public final GameStats spojnice;
     public final GameStats mojBroj;
     public final GameStats korakPoKorak;
+    public final GameStats asocijacije;
+    public final GameStats skocko;
 
     public UserProfile(String uid, String username, String email, String region, int avatarTheme,
-                       int tokens, int stars, int matchesPlayed, int wins, int losses, String activePartyId,
-                       GameStats koZnaZna, GameStats spojnice, GameStats mojBroj, GameStats korakPoKorak) {
+                       int avatarFrameRank, String avatarFrameCycleMonth,
+                       int tokens, int stars, int leagueLevel, int matchesPlayed, int wins, int losses,
+                       String activePartyId,
+                       GameStats koZnaZna, GameStats spojnice, GameStats mojBroj, GameStats korakPoKorak,
+                       GameStats asocijacije, GameStats skocko) {
         this.uid = uid;
         this.username = username;
         this.email = email;
         this.region = region;
         this.avatarTheme = avatarTheme;
+        this.avatarFrameRank = avatarFrameRank;
+        this.avatarFrameCycleMonth = avatarFrameCycleMonth;
         this.tokens = tokens;
         this.stars = stars;
+        this.leagueLevel = leagueLevel;
         this.matchesPlayed = matchesPlayed;
         this.wins = wins;
         this.losses = losses;
@@ -36,6 +47,8 @@ public class UserProfile {
         this.spojnice = spojnice;
         this.mojBroj = mojBroj;
         this.korakPoKorak = korakPoKorak;
+        this.asocijacije = asocijacije;
+        this.skocko = skocko;
     }
 
     public static class GameStats {

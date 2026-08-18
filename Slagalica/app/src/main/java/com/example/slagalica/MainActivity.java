@@ -4,16 +4,25 @@ import com.example.slagalica.auth.FirebaseManager;
 import com.example.slagalica.challenge.ChallengeActivity;
 import com.example.slagalica.chat.ChatActivity;
 import com.example.slagalica.chat.ChatRepository;
+import com.example.slagalica.leagues.LeagueNotificationRepository;
+import com.example.slagalica.leagues.LeagueUiHelper;
 import com.example.slagalica.notifications.NotificationChannelManager;
+import com.example.slagalica.notifications.NotificationsActivity;
+import com.example.slagalica.missions.MissionsActivity;
+import com.example.slagalica.ranking.RankingActivity;
+import com.example.slagalica.ranking.RankingRepository;
+import com.example.slagalica.ranking.RewardActivity;
+import com.example.slagalica.tournament.TournamentActivity;
 import com.example.slagalica.party.FriendlyInviteActivity;
 import com.example.slagalica.party.FriendlyInviteRepository;
 import com.example.slagalica.profile.UserProfile;
 import com.example.slagalica.profile.UserProfileRepository;
+import com.example.slagalica.regions.RegionAvatarFrameHelper;
+import com.example.slagalica.regions.RegionMapActivity;
 
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
@@ -48,10 +57,17 @@ public class MainActivity extends AppCompatActivity {
     private Button btnOpenFriendly;
     private Button btnOpenChat;
     private Button btnOpenChallenges;
+    private Button btnOpenRegions;
     private TextView tvLoggedInUser;
     private TextView tvTokensStars;
     private FirebaseManager firebaseManager;
     private UserProfileRepository profileRepository;
+    private Button btnOpenNotifications;
+    private Button btnOpenRanking;
+    private Button btnOpenTournament;
+    private Button btnOpenMissions;
+    private RankingRepository rankingRepository;
+    private boolean rewardScreenShown = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -79,6 +95,12 @@ public class MainActivity extends AppCompatActivity {
         btnOpenFriendly = findViewById(R.id.btnOpenFriendly);
         btnOpenChat = findViewById(R.id.btnOpenChat);
         btnOpenChallenges = findViewById(R.id.btnOpenChallenges);
+        btnOpenRegions = findViewById(R.id.btnOpenRegions);
+        btnOpenNotifications = findViewById(R.id.btnOpenNotifications);
+        btnOpenRanking = findViewById(R.id.btnOpenRanking);
+        btnOpenTournament = findViewById(R.id.btnOpenTournament);
+        btnOpenMissions = findViewById(R.id.btnOpenMissions);
+        rankingRepository = new RankingRepository();
         tvLoggedInUser = findViewById(R.id.tvLoggedInUser);
         tvTokensStars = findViewById(R.id.tvTokensStars);
 
@@ -106,6 +128,7 @@ public class MainActivity extends AppCompatActivity {
         loggedInSection.setVisibility(View.GONE);
         ChatRepository.stopNotificationListener();
         FriendlyInviteRepository.stopNotificationListener();
+        LeagueNotificationRepository.stopLeagueChangeListener();
 
         btnOpenLogin.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, LoginActivity.class)));
         btnOpenRegister.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, RegisterActivity.class)));
@@ -118,6 +141,17 @@ public class MainActivity extends AppCompatActivity {
         tvLoggedInUser.setText("Dobrodosli!");
         tvTokensStars.setText("Ucitavanje profila...");
         firebaseManager.markCurrentUserLoggedIn();
+        LeagueNotificationRepository.startLeagueChangeListener(MainActivity.this, user.getUid());
+        rankingRepository.finalizePreviousCyclesIfNeeded();
+        rankingRepository.checkPendingReward(user.getUid(), rewardText -> runOnUiThread(() -> {
+            if (rewardScreenShown) {
+                return;
+            }
+            rewardScreenShown = true;
+            Intent rewardIntent = new Intent(MainActivity.this, RewardActivity.class);
+            rewardIntent.putExtra("rewardText", rewardText);
+            startActivity(rewardIntent);
+        }));
 
         profileRepository.grantDailyTokensIfNeeded(user.getUid(), new UserProfileRepository.OperationCallback() {
             @Override
@@ -136,6 +170,11 @@ public class MainActivity extends AppCompatActivity {
         btnOpenFriendly.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, FriendlyInviteActivity.class)));
         btnOpenChat.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, ChatActivity.class)));
         btnOpenChallenges.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, ChallengeActivity.class)));
+        btnOpenRegions.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, RegionMapActivity.class)));
+        btnOpenNotifications.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, NotificationsActivity.class)));
+        btnOpenRanking.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, RankingActivity.class)));
+        btnOpenTournament.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, TournamentActivity.class)));
+        btnOpenMissions.setOnClickListener(view -> startActivity(new Intent(MainActivity.this, MissionsActivity.class)));
     }
 
     private void loadProfileForMain(FirebaseUser user) {
@@ -148,7 +187,7 @@ public class MainActivity extends AppCompatActivity {
                     tvLoggedInUser.setText("Dobrodosli, " + profile.username + "!");
                     tvTokensStars.setText("Tokeni: " + profile.tokens
                             + " | Zvezde: " + profile.stars
-                            + " | Liga: " + resolveLeague(profile.stars));
+                            + " | Liga: " + LeagueUiHelper.displayNameForStars(profile.stars));
                     applyProfileAvatar(profile);
                 });
             }
@@ -166,6 +205,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        LeagueNotificationRepository.setCurrentActivity(this);
         FirebaseUser currentUser = firebaseManager.getCurrentUser();
         if (currentUser != null && !currentUser.isAnonymous()) {
             showLoggedInView(currentUser);
@@ -174,14 +214,10 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private String resolveLeague(int stars) {
-        if (stars >= 200) {
-            return "Zlatna";
-        }
-        if (stars >= 100) {
-            return "Srebrna";
-        }
-        return "Bronzana";
+    @Override
+    protected void onPause() {
+        LeagueNotificationRepository.clearCurrentActivity(this);
+        super.onPause();
     }
 
     private void applyProfileAvatar(UserProfile profile) {
@@ -190,7 +226,8 @@ public class MainActivity extends AppCompatActivity {
 
         btnOpenProfile.setText(initials);
         btnOpenProfile.setTextColor(Color.WHITE);
-        btnOpenProfile.setBackgroundTintList(ColorStateList.valueOf(AVATAR_COLORS[safeIndex]));
+        RegionAvatarFrameHelper.apply(btnOpenProfile, AVATAR_COLORS[safeIndex],
+                profile.avatarFrameRank, profile.avatarFrameCycleMonth);
     }
 
     private String extractInitials(String username) {
