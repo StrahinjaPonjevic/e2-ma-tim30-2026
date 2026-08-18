@@ -100,7 +100,7 @@ public class KoZnaZnaActivity extends AppCompatActivity {
         gameKey = getIntent().getStringExtra("gameKey");
         countsForStats = getIntent().getBooleanExtra("countsForStats", true);
         challengeMode = getIntent().getBooleanExtra("challengeMode", false);
-        canControlGameFlow = getIntent().getBooleanExtra("isOwner", true);
+        canControlGameFlow = getIntent().getBooleanExtra("isOwner", false);
         isOwner = canControlGameFlow;
         if (gameDocId == null || gameDocId.trim().isEmpty()) {
             gameDocId = sessionId;
@@ -185,6 +185,7 @@ public class KoZnaZnaActivity extends AppCompatActivity {
                 sessionInfo = info;
                 if (currentUserId != null) {
                     isOwner = currentUserId.equals(info.ownerId);
+                    canControlGameFlow = isOwner || getIntent().getBooleanExtra("isOwner", false);
                 }
                 updatePlayerNames();
                 observePartyIfNeeded();
@@ -394,6 +395,8 @@ public class KoZnaZnaActivity extends AppCompatActivity {
         progressTimer.setProgress(QUESTION_DURATION_SECONDS);
     }
 
+    private int waitingRetryCount = 0;
+
     private void scheduleGameRefreshRetry() {
         if (waitingForGameRetryScheduled || canControlGameFlow) {
             return;
@@ -403,7 +406,12 @@ public class KoZnaZnaActivity extends AppCompatActivity {
         tvQuestion.postDelayed(() -> {
             waitingForGameRetryScheduled = false;
             if (currentState == null) {
-                refreshGameStateOnce();
+                waitingRetryCount++;
+                if (waitingRetryCount >= 3 && sessionInfo != null) {
+                    initializeGame();
+                } else {
+                    refreshGameStateOnce();
+                }
             }
         }, 1200);
     }
@@ -644,7 +652,9 @@ public class KoZnaZnaActivity extends AppCompatActivity {
     }
 
     private void forfeitParty() {
-        partyRepository.forfeitParty(partyId, currentUserId, new PartyRepository.OperationCallback() {
+        int oScore = currentState != null ? currentState.ownerScore : 0;
+        int gScore = currentState != null ? currentState.guestScore : 0;
+        partyRepository.forfeitPartyWithCurrentGameScore(partyId, gameKey, currentUserId, oScore, gScore, new PartyRepository.OperationCallback() {
             @Override
             public void onSuccess() {
                 runOnUiThread(() -> finish());

@@ -120,7 +120,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
         gameKey = getIntent().getStringExtra("gameKey");
         countsForStats = getIntent().getBooleanExtra("countsForStats", true);
         challengeMode = getIntent().getBooleanExtra("challengeMode", false);
-        canControlGameFlow = getIntent().getBooleanExtra("isOwner", true);
+        canControlGameFlow = getIntent().getBooleanExtra("isOwner", false);
         isOwner = canControlGameFlow;
         if (gameDocId == null || gameDocId.trim().isEmpty()) {
             gameDocId = sessionId;
@@ -268,6 +268,7 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
                         guestId = snapshot.getString("guestId");
                         if (currentUserId != null) {
                             isOwner = currentUserId.equals(ownerId);
+                            canControlGameFlow = isOwner || getIntent().getBooleanExtra("isOwner", false);
                         }
                     }
                     listenForGameData();
@@ -283,7 +284,17 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
                         return;
                     }
                     if (snapshot == null || !snapshot.exists()) {
-                        if (!gameInitialized && canControlGameFlow) initializeGame();
+                        if (!gameInitialized) {
+                            if (canControlGameFlow) {
+                                initializeGame();
+                            } else {
+                                tvTurnInfo.postDelayed(() -> {
+                                    if (!gameInitialized && !isFinishing() && !isDestroyed()) {
+                                        initializeGame();
+                                    }
+                                }, 3500);
+                            }
+                        }
                         return;
                     }
 
@@ -896,7 +907,9 @@ public class MojBrojActivity extends AppCompatActivity implements SensorEventLis
     }
 
     private void forfeitParty() {
-        partyRepository.forfeitParty(partyId, currentUserId, new PartyRepository.OperationCallback() {
+        int oScore = ownerScore;
+        int gScore = guestScore;
+        partyRepository.forfeitPartyWithCurrentGameScore(partyId, gameKey, currentUserId, oScore, gScore, new PartyRepository.OperationCallback() {
             @Override
             public void onSuccess() {
                 runOnUiThread(() -> finish());

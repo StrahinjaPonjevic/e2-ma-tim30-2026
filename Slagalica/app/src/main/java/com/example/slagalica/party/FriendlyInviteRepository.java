@@ -167,9 +167,6 @@ public class FriendlyInviteRepository {
                     if (hasActiveParty(inviter)) {
                         throw abort("Vec ucestvujete u partiji");
                     }
-                    if (!Boolean.TRUE.equals(invitee.getBoolean("isLoggedIn"))) {
-                        throw abort("Prijatelj nije ulogovan");
-                    }
                     if (hasActiveParty(invitee)) {
                         throw abort("Prijatelj je vec u partiji");
                     }

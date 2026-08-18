@@ -50,6 +50,21 @@ public class UserProfileRepository {
                 });
     }
 
+    public com.google.firebase.firestore.ListenerRegistration listenUserProfile(String uid, ProfileCallback callback) {
+        return db.collection(USERS_COLLECTION).document(uid)
+                .addSnapshotListener((snapshot, error) -> {
+                    if (error != null) {
+                        callback.onError("Greska pri ucitavanju profila");
+                        return;
+                    }
+                    if (snapshot == null || !snapshot.exists()) {
+                        callback.onError("Profil nije pronadjen");
+                        return;
+                    }
+                    callback.onSuccess(mapProfile(snapshot));
+                });
+    }
+
     public void updateAvatarTheme(String uid, int avatarTheme, OperationCallback callback) {
         Map<String, Object> updates = new HashMap<>();
         updates.put("avatarTheme", avatarTheme);
@@ -57,6 +72,12 @@ public class UserProfileRepository {
         db.collection(USERS_COLLECTION).document(uid)
                 .update(updates)
                 .addOnCompleteListener(task -> notifyCallback(task, callback, "Greska pri cuvanju avatara"));
+    }
+
+    public void clearActiveParty(String uid, OperationCallback callback) {
+        db.collection(USERS_COLLECTION).document(uid)
+                .update("activePartyId", null)
+                .addOnCompleteListener(task -> notifyCallback(task, callback, "Greska pri napustanju partije"));
     }
 
     public void ensureProfileDefaults(String uid, OperationCallback callback) {
@@ -163,11 +184,12 @@ public class UserProfileRepository {
                 valueOrDefault(snapshot.getString("email"), ""),
                 valueOrDefault(snapshot.getString("region"), "Nepoznat region"),
                 intValue(snapshot.get("avatarTheme")),
-                snapshot.contains("tokens") ? intValue(snapshot.get("tokens")) : 5,
+                snapshot.get("tokens") != null ? intValue(snapshot.get("tokens")) : 5,
                 intValue(snapshot.get("stars")),
                 intValue(snapshot.get("matchesPlayed")),
                 intValue(snapshot.get("wins")),
                 intValue(snapshot.get("losses")),
+                snapshot.getString("activePartyId"),
                 mapGameStats(koZnaZna),
                 mapGameStats(spojnice),
                 mapGameStats(mojBroj),

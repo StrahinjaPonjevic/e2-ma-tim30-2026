@@ -421,7 +421,7 @@ public class FriendsRepository {
         }
 
         public boolean isAvailableForInvite() {
-            return isLoggedIn && (activePartyId == null || activePartyId.trim().isEmpty());
+            return activePartyId == null || activePartyId.trim().isEmpty();
         }
 
         public String leagueName() {

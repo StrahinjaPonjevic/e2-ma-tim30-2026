@@ -63,6 +63,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
     private CountDownTimer countDownTimer;
     private com.google.firebase.firestore.ListenerRegistration gameListener;
     private com.google.firebase.firestore.ListenerRegistration partyListener;
+    private boolean opponentForfeited = false;
 
     private String currentPhase;
     private int currentRound = 1;
@@ -91,7 +92,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
         gameKey = getIntent().getStringExtra("gameKey");
         countsForStats = getIntent().getBooleanExtra("countsForStats", true);
         challengeMode = getIntent().getBooleanExtra("challengeMode", false);
-        canControlGameFlow = getIntent().getBooleanExtra("isOwner", true);
+        canControlGameFlow = getIntent().getBooleanExtra("isOwner", false);
         isOwner = canControlGameFlow;
         if (gameDocId == null || gameDocId.trim().isEmpty()) {
             gameDocId = sessionId;
@@ -126,9 +127,9 @@ public class KorakPoKorakActivity extends AppCompatActivity {
                 .addOnSuccessListener(snapshot -> {
                     if (snapshot.exists()) {
                         ownerId = snapshot.getString("ownerId");
-                        guestId = snapshot.getString("guestId");
-                        if (currentUserId != null) {
+                        guestId = snapshot.getString("guestId");                        if (currentUserId != null) {
                             isOwner = currentUserId.equals(ownerId);
+                            canControlGameFlow = isOwner || getIntent().getBooleanExtra("isOwner", false);
                         }
                     }
                     observePartyIfNeeded();
@@ -151,6 +152,15 @@ public class KorakPoKorakActivity extends AppCompatActivity {
                     return;
                 }
 
+                boolean forfeited = (isOwner && party.guestForfeited) || (!isOwner && party.ownerForfeited);
+                if (forfeited && !opponentForfeited) {
+                    opponentForfeited = true;
+                    runOnUiThread(() -> {
+                        Toast.makeText(KorakPoKorakActivity.this, "Protivnik je napustio partiju.", Toast.LENGTH_SHORT).show();
+                        checkAndSkipWaitPhases();
+                    });
+                }
+
                 boolean partyMovedOn = !PartyData.STATUS_IN_PROGRESS.equals(party.status)
                         || (party.currentGameKey != null && !party.currentGameKey.equals(gameKey));
                 if (!partyMovedOn) {
@@ -170,6 +180,16 @@ public class KorakPoKorakActivity extends AppCompatActivity {
             public void onError(String message) {
             }
         });
+    }
+
+    private void checkAndSkipWaitPhases() {
+        if (!opponentForfeited || !canControlGameFlow || gameFinished) return;
+
+        if ("guest_steal".equals(currentPhase) && isOwner) {
+            handleTimerExpiry(); // Advance to round1_done
+        } else if ("owner_steal".equals(currentPhase) && !isOwner) {
+            handleTimerExpiry(); // Advance to round2_done
+        }
     }
 
     private void bindViews() {
@@ -232,7 +252,7 @@ public class KorakPoKorakActivity extends AppCompatActivity {
                 .addSnapshotListener(new com.google.firebase.firestore.EventListener<DocumentSnapshot>() {
                     @Override
                     public void onEvent(DocumentSnapshot snapshot,
-                                        com.google.firebase.firestore.FirebaseFirestoreException e) {
+                                         com.google.firebase.firestore.FirebaseFirestoreException e) {
                         if (e != null) {
                             if (!gameInitialized && canControlGameFlow) {
                                 initializeGame();
@@ -241,8 +261,16 @@ public class KorakPoKorakActivity extends AppCompatActivity {
                         }
 
                         if (snapshot == null || !snapshot.exists()) {
-                            if (!gameInitialized && canControlGameFlow) {
-                                initializeGame();
+                            if (!gameInitialized) {
+                                if (canControlGameFlow) {
+                                    initializeGame();
+                                } else {
+                                    tvTurnInfo.postDelayed(() -> {
+                                        if (!gameInitialized && !isFinishing() && !isDestroyed()) {
+                                            initializeGame();
+                                        }
+                                    }, 3500);
+                                }
                             }
                             return;
                         }
@@ -384,38 +412,6 @@ public class KorakPoKorakActivity extends AppCompatActivity {
                 startLocalTimer(ROUND_DURATION);
                 break;
 
-            case "guest_steal":
-                if (!ownerIsMe || challengeMode) {
-                    tvTurnInfo.setText("Krađa! Pogodi za 5 bodova!");
-                    enableAnswerInput(true);
-                    isMyTurn = true;
-                    isStealTurn = true;
-                } else {
-                    tvTurnInfo.setText("Protivnik krade...");
-                    enableAnswerInput(false);
-                    isMyTurn = false;
-                    isStealTurn = false;
-                }
-                startLocalTimer(STEAL_DURATION);
-                break;
-
-            case "guest_playing":
-                currentRound = 2;
-                tvRoundLabel.setText("RUNDA 2/2 — KORAK PO KORAK");
-                if (!ownerIsMe) {
-                    tvTurnInfo.setText("Tvoj red! Pogodi pojam.");
-                    enableAnswerInput(true);
-                    isMyTurn = true;
-                    isStealTurn = false;
-                } else {
-                    tvTurnInfo.setText("Protivnik pogađa...");
-                    enableAnswerInput(false);
-                    isMyTurn = false;
-                    isStealTurn = false;
-                }
-                startLocalTimer(ROUND_DURATION);
-                break;
-
             case "owner_steal":
                 if (ownerIsMe) {
                     tvTurnInfo.setText("Krađa! Pogodi za 5 bodova!");
@@ -427,6 +423,23 @@ public class KorakPoKorakActivity extends AppCompatActivity {
                     enableAnswerInput(false);
                     isMyTurn = false;
                     isStealTurn = false;
+                    if (opponentForfeited) checkAndSkipWaitPhases();
+                }
+                startLocalTimer(STEAL_DURATION);
+                break;
+
+            case "guest_steal":
+                if (!ownerIsMe || challengeMode) {
+                    tvTurnInfo.setText("Krađa! Pogodi za 5 bodova!");
+                    enableAnswerInput(true);
+                    isMyTurn = true;
+                    isStealTurn = true;
+                } else {
+                    tvTurnInfo.setText("Protivnik krade...");
+                    enableAnswerInput(false);
+                    isMyTurn = false;
+                    isStealTurn = false;
+                    if (opponentForfeited) checkAndSkipWaitPhases();
                 }
                 startLocalTimer(STEAL_DURATION);
                 break;
@@ -726,7 +739,9 @@ public class KorakPoKorakActivity extends AppCompatActivity {
         }
 
         if (partyId != null) {
-            partyRepository.forfeitParty(partyId, currentUserId, new PartyRepository.OperationCallback() {
+            int oScore = ownerScore;
+            int gScore = guestScore;
+            partyRepository.forfeitPartyWithCurrentGameScore(partyId, gameKey, currentUserId, oScore, gScore, new PartyRepository.OperationCallback() {
                 @Override
                 public void onSuccess() {
                     runOnUiThread(() -> finish());

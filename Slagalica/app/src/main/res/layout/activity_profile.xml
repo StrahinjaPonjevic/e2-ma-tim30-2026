@@ -329,6 +329,17 @@
         </LinearLayout>
 
         <Button
+            android:id="@+id/btnAbandonParty"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:layout_marginBottom="10dp"
+            android:text="Napusti zaglavljenu partiju"
+            android:visibility="gone"
+            android:backgroundTint="#E53935"
+            android:textColor="#FFFFFF"
+            android:textAllCaps="false" />
+
+        <Button
             android:id="@+id/btnLogout"
             android:layout_width="match_parent"
             android:layout_height="55dp"

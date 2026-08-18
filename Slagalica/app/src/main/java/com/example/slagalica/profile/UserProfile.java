@@ -12,13 +12,14 @@ public class UserProfile {
     public final int matchesPlayed;
     public final int wins;
     public final int losses;
+    public final String activePartyId;
     public final GameStats koZnaZna;
     public final GameStats spojnice;
     public final GameStats mojBroj;
     public final GameStats korakPoKorak;
 
     public UserProfile(String uid, String username, String email, String region, int avatarTheme,
-                       int tokens, int stars, int matchesPlayed, int wins, int losses,
+                       int tokens, int stars, int matchesPlayed, int wins, int losses, String activePartyId,
                        GameStats koZnaZna, GameStats spojnice, GameStats mojBroj, GameStats korakPoKorak) {
         this.uid = uid;
         this.username = username;
@@ -30,6 +31,7 @@ public class UserProfile {
         this.matchesPlayed = matchesPlayed;
         this.wins = wins;
         this.losses = losses;
+        this.activePartyId = activePartyId;
         this.koZnaZna = koZnaZna;
         this.spojnice = spojnice;
         this.mojBroj = mojBroj;

@@ -69,6 +69,7 @@ public class AsocijacijeActivity extends AppCompatActivity {
     private boolean challengeMode = false;
     private boolean gameFinished = false;
     private boolean challengeScoreSubmitted = false;
+    private boolean canControlGameFlow = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,6 +79,7 @@ public class AsocijacijeActivity extends AppCompatActivity {
         partyId = getIntent().getStringExtra("partyId");
         challengeId = getIntent().getStringExtra("challengeId");
         challengeMode = getIntent().getBooleanExtra("challengeMode", false);
+        canControlGameFlow = getIntent().getBooleanExtra("isOwner", false);
         gameKey = getIntent().getStringExtra("gameKey");
         if (gameKey == null || gameKey.trim().isEmpty()) {
             gameKey = "asocijacije";
@@ -481,7 +483,9 @@ public class AsocijacijeActivity extends AppCompatActivity {
     }
 
     private void forfeitParty() {
-        partyRepository.forfeitParty(partyId, currentUserId, new PartyRepository.OperationCallback() {
+        int oScore = player1Score;
+        int gScore = player2Score;
+        partyRepository.forfeitPartyWithCurrentGameScore(partyId, gameKey, currentUserId, oScore, gScore, new PartyRepository.OperationCallback() {
             @Override
             public void onSuccess() {
                 runOnUiThread(() -> finish());

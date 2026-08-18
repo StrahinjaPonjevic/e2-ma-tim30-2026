@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -47,9 +48,7 @@ public class ProfileActivity extends AppCompatActivity {
     private TextView tvSpojniceStats;
     private TextView tvMojBrojStats;
     private TextView tvKorakPoKorakStats;
-    private Button btnEditAvatar;
-    private Button btnLogout;
-    private Button btnBackToMain;
+    private Button btnEditAvatar, btnLogout, btnBackToMain, btnAbandonParty;
 
     private FirebaseManager firebaseManager;
     private UserProfileRepository profileRepository;
@@ -106,6 +105,7 @@ public class ProfileActivity extends AppCompatActivity {
         btnEditAvatar = findViewById(R.id.btnEditAvatar);
         btnLogout = findViewById(R.id.btnLogout);
         btnBackToMain = findViewById(R.id.btnBackToMain);
+        btnAbandonParty = findViewById(R.id.btnAbandonParty);
     }
 
     private void bindListeners() {
@@ -131,6 +131,26 @@ public class ProfileActivity extends AppCompatActivity {
         });
 
         btnBackToMain.setOnClickListener(v -> finish());
+
+        btnAbandonParty.setOnClickListener(v -> {
+            if (currentUser != null) {
+                profileRepository.clearActiveParty(currentUser.getUid(), new UserProfileRepository.OperationCallback() {
+                    @Override
+                    public void onSuccess() {
+                        runOnUiThread(() -> {
+                            Toast.makeText(ProfileActivity.this, "Status partije resetovan.", Toast.LENGTH_SHORT).show();
+                            btnAbandonParty.setVisibility(View.GONE);
+                            loadUserProfile();
+                        });
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        runOnUiThread(() -> Toast.makeText(ProfileActivity.this, message, Toast.LENGTH_SHORT).show());
+                    }
+                });
+            }
+        });
     }
 
     private void loadUserProfile() {
@@ -189,6 +209,12 @@ public class ProfileActivity extends AppCompatActivity {
                 formatPercent(profile.korakPoKorak.step5Hits, totalKpkRounds),
                 formatPercent(profile.korakPoKorak.step6Hits, totalKpkRounds),
                 formatPercent(profile.korakPoKorak.step7Hits, totalKpkRounds)));
+
+        if (profile.activePartyId != null && !profile.activePartyId.trim().isEmpty()) {
+            btnAbandonParty.setVisibility(View.VISIBLE);
+        } else {
+            btnAbandonParty.setVisibility(View.GONE);
+        }
     }
 
     private void openAvatarPicker() {

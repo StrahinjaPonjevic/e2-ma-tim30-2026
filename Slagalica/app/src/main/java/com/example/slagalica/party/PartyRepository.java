@@ -47,11 +47,15 @@ public class PartyRepository {
         void onError(String message);
     }
 
+    private static final long QUEUE_MAX_AGE_MS = 45_000L;
+
     public PartyRepository() {
         db = FirebaseFirestore.getInstance();
     }
 
     public void findRandomOpponentOrWait(String uid, String username, MatchmakingCallback callback) {
+        db.collection(USERS).document(uid).update("activePartyId", null);
+        long minCreatedAtMs = System.currentTimeMillis() - QUEUE_MAX_AGE_MS;
         db.collection(QUEUE)
                 .whereEqualTo("status", "waiting")
                 .limit(10)
@@ -59,10 +63,19 @@ public class PartyRepository {
                 .addOnSuccessListener(snapshot -> {
                     QueryDocumentSnapshot opponent = null;
                     for (QueryDocumentSnapshot doc : snapshot) {
-                        if (!uid.equals(doc.getId())) {
-                            opponent = doc;
-                            break;
+                        if (uid.equals(doc.getId())) {
+                            continue;
                         }
+
+                        com.google.firebase.Timestamp createdAt = doc.getTimestamp("createdAt");
+                        if (createdAt != null && createdAt.toDate().getTime() < minCreatedAtMs) {
+                            // Clean up stale queue document
+                            db.collection(QUEUE).document(doc.getId()).delete();
+                            continue;
+                        }
+
+                        opponent = doc;
+                        break;
                     }
 
                     if (opponent == null) {
@@ -72,7 +85,22 @@ public class PartyRepository {
 
                     String opponentUid = opponent.getId();
                     String opponentUsername = valueOrDefault(opponent.getString("username"), "Igrac");
-                    createRegularPartyFromQueue(opponentUid, opponentUsername, uid, username, callback);
+                    createRegularPartyFromQueue(opponentUid, opponentUsername, uid, username, new MatchmakingCallback() {
+                        @Override
+                        public void onPartyReady(String partyId) {
+                            callback.onPartyReady(partyId);
+                        }
+
+                        @Override
+                        public void onWaiting() {
+                            callback.onWaiting();
+                        }
+
+                        @Override
+                        public void onError(String message) {
+                            addCurrentUserToQueue(uid, username, callback);
+                        }
+                    });
                 })
                 .addOnFailureListener(e -> callback.onError(messageOf(e, "Greska pri trazenju protivnika")));
     }
@@ -81,6 +109,7 @@ public class PartyRepository {
         db.collection(QUEUE).document(uid)
                 .delete()
                 .addOnSuccessListener(unused -> {
+                    db.collection(USERS).document(uid).update("activePartyId", null);
                     if (callback != null) callback.onSuccess();
                 })
                 .addOnFailureListener(e -> {
@@ -128,6 +157,31 @@ public class PartyRepository {
                 .addOnFailureListener(e -> callback.onError(messageOf(e, "Greska pri kreiranju prijateljske partije")));
     }
 
+    public static class MultiListenerRegistration implements ListenerRegistration {
+        private final java.util.List<ListenerRegistration> registrations = new java.util.ArrayList<>();
+        private boolean removed = false;
+
+        public synchronized void add(ListenerRegistration reg) {
+            if (reg == null) return;
+            if (removed) {
+                reg.remove();
+            } else {
+                registrations.add(reg);
+            }
+        }
+
+        @Override
+        public synchronized void remove() {
+            removed = true;
+            for (ListenerRegistration reg : registrations) {
+                if (reg != null) {
+                    reg.remove();
+                }
+            }
+            registrations.clear();
+        }
+    }
+
     public ListenerRegistration listenParty(String partyId, PartyListener listener) {
         return db.collection(PARTIES).document(partyId)
                 .addSnapshotListener((snapshot, error) -> {
@@ -144,38 +198,41 @@ public class PartyRepository {
     }
 
     public ListenerRegistration listenOwnedInProgressParty(String ownerId, long minCreatedAtMs, PartyListener listener) {
-        return db.collection(PARTIES)
-                .whereEqualTo("ownerId", ownerId)
-                .limit(5)
+        return db.collection(QUEUE).document(ownerId)
                 .addSnapshotListener((snapshot, error) -> {
                     if (error != null) {
                         listener.onError(messageOf(error, "Greska pri cekanju protivnika"));
                         return;
                     }
-                    if (snapshot == null || snapshot.isEmpty()) {
+                    if (snapshot == null || !snapshot.exists()) {
                         return;
                     }
-                    for (DocumentSnapshot doc : snapshot.getDocuments()) {
-                        PartyData party = PartyData.fromSnapshot(doc);
-                        if (PartyData.STATUS_IN_PROGRESS.equals(party.status)
-                                && isRecentEnoughForQueueMatch(party, minCreatedAtMs)) {
-                            listener.onPartyChanged(party);
-                            return;
-                        }
+                    String status = snapshot.getString("status");
+                    String partyId = snapshot.getString("partyId");
+                    if ("matched".equals(status) && partyId != null && !partyId.trim().isEmpty()) {
+                        db.collection(PARTIES).document(partyId).get()
+                                .addOnSuccessListener(partySnap -> {
+                                    if (partySnap == null || !partySnap.exists()) return;
+                                    PartyData party = PartyData.fromSnapshot(partySnap);
+                                    if (PartyData.STATUS_IN_PROGRESS.equals(party.status)) {
+                                        db.collection(QUEUE).document(ownerId).delete();
+                                        listener.onPartyChanged(party);
+                                    }
+                                })
+                                .addOnFailureListener(e -> listener.onError(messageOf(e, "Greska pri ucitavanju partije")));
                     }
                 });
     }
 
-    private boolean isRecentEnoughForQueueMatch(PartyData party, long minCreatedAtMs) {
-        if (minCreatedAtMs <= 0L) {
-            return true;
-        }
-
-        long createdAtMs = party.createdAt != null ? party.createdAt.toDate().getTime() : 0L;
-        long updatedAtMs = party.updatedAt != null ? party.updatedAt.toDate().getTime() : 0L;
-        long toleranceMs = 5_000L;
-        return createdAtMs >= (minCreatedAtMs - toleranceMs)
-                || updatedAtMs >= (minCreatedAtMs - toleranceMs);
+    public void clearUserActiveParty(String uid, OperationCallback callback) {
+        if (uid == null) return;
+        db.collection(USERS).document(uid).update("activePartyId", null)
+                .addOnSuccessListener(unused -> {
+                    if (callback != null) callback.onSuccess();
+                })
+                .addOnFailureListener(e -> {
+                    if (callback != null) callback.onError(messageOf(e, "Greska"));
+                });
     }
 
     public void finishGameAndAdvance(String partyId, String gameKey, int ownerScore, int guestScore,
@@ -203,11 +260,9 @@ public class PartyRepository {
                         guestUser = transaction.get(guestRef);
                     }
 
-                    int effectiveOwnerScore = normalizedOwnerScore(party, ownerScore, guestScore);
-                    int effectiveGuestScore = normalizedGuestScore(party, ownerScore, guestScore);
-                    int newOwnerTotal = party.ownerTotalScore + effectiveOwnerScore;
-                    int newGuestTotal = party.guestTotalScore + effectiveGuestScore;
-                    Map<String, Object> updates = buildAdvanceUpdates(party, gameKey, effectiveOwnerScore, effectiveGuestScore,
+                    int newOwnerTotal = calculateTotalScore(party, gameKey, ownerScore, true);
+                    int newGuestTotal = calculateTotalScore(party, gameKey, guestScore, false);
+                    Map<String, Object> updates = buildAdvanceUpdates(party, gameKey, ownerScore, guestScore,
                             newOwnerTotal, newGuestTotal, finalGame);
                     transaction.update(partyRef, updates);
 
@@ -283,11 +338,9 @@ public class PartyRepository {
                             guestUser = transaction.get(guestRef);
                         }
 
-                        int effectiveOwnerScore = normalizedOwnerScore(party, ownerScore, guestScore);
-                        int effectiveGuestScore = normalizedGuestScore(party, ownerScore, guestScore);
-                        int newOwnerTotal = party.ownerTotalScore + effectiveOwnerScore;
-                        int newGuestTotal = party.guestTotalScore + effectiveGuestScore;
-                        updates.putAll(buildAdvanceUpdates(party, gameKey, effectiveOwnerScore, effectiveGuestScore,
+                        int newOwnerTotal = calculateTotalScore(party, gameKey, ownerScore, true);
+                        int newGuestTotal = calculateTotalScore(party, gameKey, guestScore, false);
+                        updates.putAll(buildAdvanceUpdates(party, gameKey, ownerScore, guestScore,
                                 newOwnerTotal, newGuestTotal, finalGame));
 
                         if (applyRewards) {
@@ -310,6 +363,12 @@ public class PartyRepository {
     }
 
     public void forfeitParty(String partyId, String forfeitedBy, OperationCallback callback) {
+        forfeitPartyWithCurrentGameScore(partyId, null, forfeitedBy, null, null, callback);
+    }
+
+    public void forfeitPartyWithCurrentGameScore(String partyId, String gameKey, String forfeitedBy,
+                                                Integer currentOwnerGameScore, Integer currentGuestGameScore,
+                                                OperationCallback callback) {
         DocumentReference partyRef = db.collection(PARTIES).document(partyId);
         db.runTransaction(transaction -> {
                     DocumentSnapshot partySnap = transaction.get(partyRef);
@@ -329,49 +388,50 @@ public class PartyRepository {
                         throw abort("Korisnik nije u partiji");
                     }
 
+                    String originalForfeiter = party.forfeitedBy != null ? party.forfeitedBy : forfeitedBy;
+                    boolean alreadyHadForfeit = party.ownerForfeited || party.guestForfeited;
+                    boolean bothForfeitedNow = alreadyHadForfeit || (ownerForfeited && guestForfeited);
+
                     Map<String, Object> updates = new HashMap<>();
-                    updates.put("forfeitedBy", forfeitedBy);
+                    updates.put("forfeitedBy", originalForfeiter);
                     updates.put(ownerForfeited ? "ownerForfeited" : "guestForfeited", true);
                     updates.put("updatedAt", FieldValue.serverTimestamp());
                     party.ownerForfeited = ownerForfeited || party.ownerForfeited;
                     party.guestForfeited = guestForfeited || party.guestForfeited;
 
-                    Map<String, Object> gameScore = party.currentGameScoreMap();
-                    String forfeitedScoreField = ownerForfeited ? "ownerScore" : "guestScore";
-                    String otherScoreField = ownerForfeited ? "guestScore" : "ownerScore";
-                    if (!(gameScore.get(forfeitedScoreField) instanceof Number)) {
-                        updates.put("gameScores." + party.currentGameKey + "." + forfeitedScoreField, 0);
-                        updates.put("gameScores." + party.currentGameKey + "." + (ownerForfeited ? "ownerSubmittedAt" : "guestSubmittedAt"),
-                                FieldValue.serverTimestamp());
-                    }
+                    String activeGameKey = gameKey != null ? gameKey : party.currentGameKey;
+                    int ownerGameScore = currentOwnerGameScore != null ? currentOwnerGameScore
+                            : (party.gameScores != null && party.gameScores.containsKey(activeGameKey) && party.gameScores.get(activeGameKey) instanceof Map
+                                ? intValue(((Map<?, ?>) party.gameScores.get(activeGameKey)).get("ownerScore")) : 0);
+                    int guestGameScore = currentGuestGameScore != null ? currentGuestGameScore
+                            : (party.gameScores != null && party.gameScores.containsKey(activeGameKey) && party.gameScores.get(activeGameKey) instanceof Map
+                                ? intValue(((Map<?, ?>) party.gameScores.get(activeGameKey)).get("guestScore")) : 0);
 
-                    Object rawOtherScore = gameScore.get(otherScoreField);
-                    if (rawOtherScore instanceof Number) {
-                        int otherScore = ((Number) rawOtherScore).intValue();
-                        int ownerScore = ownerForfeited ? 0 : otherScore;
-                        int guestScore = ownerForfeited ? otherScore : 0;
-                        boolean finalGame = party.currentGameIndex >= PartyData.GAME_KEYS.length - 1;
-                        DocumentSnapshot ownerUser = null;
-                        DocumentSnapshot guestUser = null;
+                    int newOwnerTotal = calculateTotalScore(party, activeGameKey, ownerGameScore, true);
+                    int newGuestTotal = calculateTotalScore(party, activeGameKey, guestGameScore, false);
+
+                    updates.put("gameScores." + activeGameKey + ".ownerScore", ownerGameScore);
+                    updates.put("gameScores." + activeGameKey + ".guestScore", guestGameScore);
+                    updates.put("gameScores." + activeGameKey + ".finishedAt", FieldValue.serverTimestamp());
+                    updates.put("ownerTotalScore", newOwnerTotal);
+                    updates.put("guestTotalScore", newGuestTotal);
+
+                    if (bothForfeitedNow) {
+                        // Both players have now forfeited/left: finalize party immediately
+                        boolean firstForfeiterIsOwner = party.ownerId.equals(originalForfeiter);
+                        updates.put("status", PartyData.STATUS_FINISHED);
+                        updates.put("winner", firstForfeiterIsOwner ? party.guestId : party.ownerId);
+                        updates.put("rewardApplied", party.isRegular() && party.countsForStats);
+
                         DocumentReference ownerRef = db.collection(USERS).document(party.ownerId);
                         DocumentReference guestRef = db.collection(USERS).document(party.guestId);
-                        boolean applyRewards = shouldApplyRewards(party, finalGame);
+                        boolean applyRewards = party.isRegular() && party.countsForStats && !party.rewardApplied;
                         if (applyRewards) {
-                            ownerUser = transaction.get(ownerRef);
-                            guestUser = transaction.get(guestRef);
-                        }
-
-                        int effectiveOwnerScore = normalizedOwnerScore(party, ownerScore, guestScore);
-                        int effectiveGuestScore = normalizedGuestScore(party, ownerScore, guestScore);
-                        int newOwnerTotal = party.ownerTotalScore + effectiveOwnerScore;
-                        int newGuestTotal = party.guestTotalScore + effectiveGuestScore;
-                        updates.putAll(buildAdvanceUpdates(party, party.currentGameKey, effectiveOwnerScore, effectiveGuestScore,
-                                newOwnerTotal, newGuestTotal, finalGame));
-
-                        if (applyRewards) {
+                            DocumentSnapshot ownerUser = transaction.get(ownerRef);
+                            DocumentSnapshot guestUser = transaction.get(guestRef);
                             applyRegularRewards(transaction, ownerRef, ownerUser, guestRef, guestUser, party,
-                                    newOwnerTotal, newGuestTotal, forfeitedBy, true);
-                        } else if (finalGame) {
+                                    newOwnerTotal, newGuestTotal, originalForfeiter, true);
+                        } else {
                             clearActiveParty(transaction, ownerRef, guestRef);
                         }
                     }
@@ -406,23 +466,21 @@ public class PartyRepository {
                     } else if (party.createdAt != null) {
                         referenceMs = party.createdAt.toDate().getTime();
                     }
-                    if (referenceMs > 0L && System.currentTimeMillis() - referenceMs < staleAfterMs) {
+                    if (referenceMs <= 0L || System.currentTimeMillis() - referenceMs < staleAfterMs) {
                         return null;
                     }
 
                     Map<String, Object> gameScore = party.currentGameScoreMap();
                     int rawOwnerScore = intValue(gameScore.get("ownerScore"));
                     int rawGuestScore = intValue(gameScore.get("guestScore"));
-                    int effectiveOwnerScore = normalizedOwnerScore(party, rawOwnerScore, rawGuestScore);
-                    int effectiveGuestScore = normalizedGuestScore(party, rawOwnerScore, rawGuestScore);
-                    int newOwnerTotal = party.ownerTotalScore + effectiveOwnerScore;
-                    int newGuestTotal = party.guestTotalScore + effectiveGuestScore;
+                    int newOwnerTotal = calculateTotalScore(party, party.currentGameKey, rawOwnerScore, true);
+                    int newGuestTotal = calculateTotalScore(party, party.currentGameKey, rawGuestScore, false);
 
                     Map<String, Object> updates = new HashMap<>();
-                    updates.put("gameScores." + party.currentGameKey + ".ownerScore", effectiveOwnerScore);
-                    updates.put("gameScores." + party.currentGameKey + ".guestScore", effectiveGuestScore);
+                    updates.put("gameScores." + party.currentGameKey + ".ownerScore", rawOwnerScore);
+                    updates.put("gameScores." + party.currentGameKey + ".guestScore", rawGuestScore);
                     updates.put("gameScores." + party.currentGameKey + ".winner",
-                            determineSideWinner(effectiveOwnerScore, effectiveGuestScore));
+                            determineSideWinner(rawOwnerScore, rawGuestScore));
                     updates.put("gameScores." + party.currentGameKey + ".finishedAt", FieldValue.serverTimestamp());
                     updates.put("ownerTotalScore", newOwnerTotal);
                     updates.put("guestTotalScore", newGuestTotal);
@@ -462,27 +520,42 @@ public class PartyRepository {
     private void addCurrentUserToQueue(String uid, String username, MatchmakingCallback callback) {
         db.collection(USERS).document(uid).get()
                 .addOnSuccessListener(userSnap -> {
-                    if (hasActiveParty(userSnap)) {
-                        callback.onError("Vec ucestvujete u partiji.");
-                        return;
-                    }
                     if (intValue(userSnap.get("tokens")) < REGULAR_TOKEN_COST) {
                         callback.onError("Nemate dovoljno tokena za regularnu partiju.");
                         return;
                     }
 
-                    Map<String, Object> queueData = new HashMap<>();
-                    queueData.put("uid", uid);
-                    queueData.put("username", valueOrDefault(username, "Igrac"));
-                    queueData.put("status", "waiting");
-                    queueData.put("createdAt", FieldValue.serverTimestamp());
+                    String activePartyId = userSnap.getString("activePartyId");
+                    if (activePartyId != null && !activePartyId.trim().isEmpty()) {
+                        db.collection(PARTIES).document(activePartyId).get()
+                                .addOnSuccessListener(partySnap -> {
+                                    if (partySnap.exists() && PartyData.STATUS_IN_PROGRESS.equals(partySnap.getString("status"))) {
+                                        callback.onError("Vec ucestvujete u partiji.");
+                                    } else {
+                                        db.collection(USERS).document(uid).update("activePartyId", null);
+                                        enqueueUser(uid, username, callback);
+                                    }
+                                })
+                                .addOnFailureListener(e -> enqueueUser(uid, username, callback));
+                        return;
+                    }
 
-                    db.collection(QUEUE).document(uid)
-                            .set(queueData)
-                            .addOnSuccessListener(unused -> callback.onWaiting())
-                            .addOnFailureListener(e -> callback.onError(messageOf(e, "Greska pri ulasku u red cekanja")));
+                    enqueueUser(uid, username, callback);
                 })
                 .addOnFailureListener(e -> callback.onError(messageOf(e, "Profil nije dostupan")));
+    }
+
+    private void enqueueUser(String uid, String username, MatchmakingCallback callback) {
+        Map<String, Object> queueData = new HashMap<>();
+        queueData.put("uid", uid);
+        queueData.put("username", valueOrDefault(username, "Igrac"));
+        queueData.put("status", "waiting");
+        queueData.put("createdAt", FieldValue.serverTimestamp());
+
+        db.collection(QUEUE).document(uid)
+                .set(queueData)
+                .addOnSuccessListener(unused -> callback.onWaiting())
+                .addOnFailureListener(e -> callback.onError(messageOf(e, "Greska pri ulasku u red cekanja")));
     }
 
     private void createRegularPartyFromQueue(String ownerId, String ownerUsername, String guestId,
@@ -533,7 +606,13 @@ public class PartyRepository {
                     transaction.update(guestUserRef, guestUpdates);
                     transaction.set(partyRef, party);
                     transaction.set(sessionRef, session);
-                    transaction.delete(ownerQueueRef);
+
+                    Map<String, Object> queueMatchUpdate = new HashMap<>();
+                    queueMatchUpdate.put("uid", ownerId);
+                    queueMatchUpdate.put("status", "matched");
+                    queueMatchUpdate.put("partyId", partyRef.getId());
+                    queueMatchUpdate.put("matchedAt", FieldValue.serverTimestamp());
+                    transaction.set(ownerQueueRef, queueMatchUpdate);
                     transaction.delete(guestQueueRef);
                     return partyRef.getId();
                 })
@@ -595,12 +674,10 @@ public class PartyRepository {
 
     private Map<String, Object> buildAdvanceUpdates(PartyData party, String gameKey, int ownerScore, int guestScore,
                                                     int newOwnerTotal, int newGuestTotal, boolean finalGame) {
-        int normalizedOwnerScore = normalizedOwnerScore(party, ownerScore, guestScore);
-        int normalizedGuestScore = normalizedGuestScore(party, ownerScore, guestScore);
         Map<String, Object> updates = new HashMap<>();
-        updates.put("gameScores." + gameKey + ".ownerScore", normalizedOwnerScore);
-        updates.put("gameScores." + gameKey + ".guestScore", normalizedGuestScore);
-        updates.put("gameScores." + gameKey + ".winner", determineSideWinner(normalizedOwnerScore, normalizedGuestScore));
+        updates.put("gameScores." + gameKey + ".ownerScore", ownerScore);
+        updates.put("gameScores." + gameKey + ".guestScore", guestScore);
+        updates.put("gameScores." + gameKey + ".winner", determineSideWinner(ownerScore, guestScore));
         updates.put("gameScores." + gameKey + ".finishedAt", FieldValue.serverTimestamp());
         updates.put("ownerTotalScore", newOwnerTotal);
         updates.put("guestTotalScore", newGuestTotal);
@@ -618,24 +695,20 @@ public class PartyRepository {
         return updates;
     }
 
-    private int normalizedOwnerScore(PartyData party, int ownerScore, int guestScore) {
-        if (party.ownerForfeited) {
-            return 0;
+    private int calculateTotalScore(PartyData party, String activeGameKey, int activeGameScore, boolean forOwner) {
+        int total = 0;
+        for (String key : PartyData.GAME_KEYS) {
+            if (key.equals(activeGameKey)) {
+                total += activeGameScore;
+            } else if (party.gameScores != null && party.gameScores.containsKey(key)) {
+                Object obj = party.gameScores.get(key);
+                if (obj instanceof Map) {
+                    Map<?, ?> gs = (Map<?, ?>) obj;
+                    total += intValue(gs.get(forOwner ? "ownerScore" : "guestScore"));
+                }
+            }
         }
-        if (party.guestForfeited) {
-            return Math.max(ownerScore, guestScore);
-        }
-        return ownerScore;
-    }
-
-    private int normalizedGuestScore(PartyData party, int ownerScore, int guestScore) {
-        if (party.guestForfeited) {
-            return 0;
-        }
-        if (party.ownerForfeited) {
-            return Math.max(ownerScore, guestScore);
-        }
-        return guestScore;
+        return total;
     }
 
     private void applyRegularRewards(Transaction transaction,
@@ -654,36 +727,49 @@ public class PartyRepository {
 
         int ownerStarsDelta;
         int guestStarsDelta;
+        int ownerStarsEarned;
+        int guestStarsEarned;
         Boolean ownerWon = null;
         Boolean guestWon = null;
 
         if (draw) {
             ownerStarsDelta = ownerTotal / 40;
             guestStarsDelta = guestTotal / 40;
+            ownerStarsEarned = ownerStarsDelta;
+            guestStarsEarned = guestStarsDelta;
         } else if (ownerForfeited) {
-            ownerStarsDelta = 0;
+            // Rule f: Napuštanjem igre igrač gubi partiju i ne dobija zvezde.
+            ownerStarsDelta = -10;
+            ownerStarsEarned = 0;
             guestStarsDelta = 10 + guestTotal / 40;
+            guestStarsEarned = guestStarsDelta;
             ownerWon = false;
             guestWon = true;
         } else if (guestForfeited) {
             ownerStarsDelta = 10 + ownerTotal / 40;
-            guestStarsDelta = 0;
+            ownerStarsEarned = ownerStarsDelta;
+            guestStarsDelta = -10;
+            guestStarsEarned = 0;
             ownerWon = true;
             guestWon = false;
         } else if (ownerTotal > guestTotal) {
             ownerStarsDelta = 10 + ownerTotal / 40;
+            ownerStarsEarned = ownerStarsDelta;
             guestStarsDelta = -10 + guestTotal / 40;
+            guestStarsEarned = guestTotal / 40;
             ownerWon = true;
             guestWon = false;
         } else {
             ownerStarsDelta = -10 + ownerTotal / 40;
+            ownerStarsEarned = ownerTotal / 40;
             guestStarsDelta = 10 + guestTotal / 40;
+            guestStarsEarned = guestStarsDelta;
             ownerWon = false;
             guestWon = true;
         }
 
-        Map<String, Object> ownerUpdates = buildUserRewardUpdate(ownerUser, ownerStarsDelta, ownerWon);
-        Map<String, Object> guestUpdates = buildUserRewardUpdate(guestUser, guestStarsDelta, guestWon);
+        Map<String, Object> ownerUpdates = buildUserRewardUpdate(ownerUser, ownerStarsDelta, ownerStarsEarned, ownerWon);
+        Map<String, Object> guestUpdates = buildUserRewardUpdate(guestUser, guestStarsDelta, guestStarsEarned, guestWon);
         if (clearActiveParty) {
             ownerUpdates.put("activePartyId", null);
             guestUpdates.put("activePartyId", null);
@@ -692,7 +778,7 @@ public class PartyRepository {
         transaction.update(guestRef, guestUpdates);
     }
 
-    private Map<String, Object> buildUserRewardUpdate(DocumentSnapshot user, int starsDelta, Boolean won) {
+    private Map<String, Object> buildUserRewardUpdate(DocumentSnapshot user, int starsDelta, int starsEarned, Boolean won) {
         Map<String, Object> updates = new HashMap<>();
         int currentStars = intValue(user.get("stars"));
         int currentProgress = intValue(user.get("starTokenProgress"));
@@ -706,8 +792,8 @@ public class PartyRepository {
             updates.put(won ? "wins" : "losses", FieldValue.increment(1));
         }
 
-        if (starsDelta > 0) {
-            int newProgress = currentProgress + starsDelta;
+        if (starsEarned > 0) {
+            int newProgress = currentProgress + starsEarned;
             int tokenBonus = newProgress / 50;
             updates.put("starTokenProgress", newProgress % 50);
             if (tokenBonus > 0) {

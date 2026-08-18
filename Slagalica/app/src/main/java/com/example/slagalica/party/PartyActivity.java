@@ -98,6 +98,9 @@ public class PartyActivity extends AppCompatActivity {
             if (queueWaiting) {
                 cancelQueueAndFinish();
             } else if (latestParty != null && latestParty.hasCurrentUserForfeited(currentUser.getUid())) {
+                if (currentUser != null) {
+                    partyRepository.clearUserActiveParty(currentUser.getUid(), null);
+                }
                 Intent intent = new Intent(PartyActivity.this, MainActivity.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
                 startActivity(intent);
@@ -105,6 +108,9 @@ public class PartyActivity extends AppCompatActivity {
             } else if (latestParty != null && PartyData.STATUS_IN_PROGRESS.equals(latestParty.status)) {
                 openCurrentGame(latestParty);
             } else {
+                if (currentUser != null) {
+                    partyRepository.clearUserActiveParty(currentUser.getUid(), null);
+                }
                 finish();
             }
         });
@@ -128,8 +134,16 @@ public class PartyActivity extends AppCompatActivity {
         });
     }
 
+    private com.google.firebase.firestore.ListenerRegistration profileListener;
+
     private void loadProfileLine() {
-        profileRepository.loadProfile(currentUser.getUid(), new UserProfileRepository.ProfileCallback() {
+        if (currentUser == null) {
+            return;
+        }
+        if (profileListener != null) {
+            profileListener.remove();
+        }
+        profileListener = profileRepository.listenUserProfile(currentUser.getUid(), new UserProfileRepository.ProfileCallback() {
             @Override
             public void onSuccess(UserProfile profile) {
                 runOnUiThread(() -> tvProfileLine.setText("Tokeni: " + profile.tokens
@@ -252,8 +266,11 @@ public class PartyActivity extends AppCompatActivity {
         } else if (party.createdAt != null) {
             referenceMs = party.createdAt.toDate().getTime();
         }
-        long elapsed = referenceMs > 0L ? Math.max(0L, System.currentTimeMillis() - referenceMs) : FORFEIT_AUTO_CLEANUP_MS;
-        long delayMs = Math.max(0L, FORFEIT_AUTO_CLEANUP_MS - elapsed);
+        if (referenceMs <= 0L) {
+            referenceMs = System.currentTimeMillis();
+        }
+        long elapsed = Math.max(0L, System.currentTimeMillis() - referenceMs);
+        long delayMs = Math.max(30_000L, FORFEIT_AUTO_CLEANUP_MS - elapsed);
         String currentPartyId = party.partyId;
 
         autoCleanupRunnable = () -> partyRepository.cleanupInactiveForfeitedParty(
@@ -392,8 +409,14 @@ public class PartyActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         clearAutoCleanup();
+        if (queueWaiting && currentUser != null) {
+            partyRepository.cancelQueue(currentUser.getUid(), null);
+        }
         if (partyListener != null) {
             partyListener.remove();
+        }
+        if (profileListener != null) {
+            profileListener.remove();
         }
     }
 }
